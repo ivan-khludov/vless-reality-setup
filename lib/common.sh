@@ -20,6 +20,30 @@ readonly SERVER_IP_FILE="${FILES_DIR}/server-ip"
 
 # ===== Helpers =====
 
+
+#
+# Prints text in green when stdout is a TTY; plain text otherwise.
+#
+# @description
+#   Use for highlighting VLESS links in interactive output without polluting files or pipes
+#   with ANSI escape codes.
+#
+# @param $* text - text to print
+#
+print_green() {
+  local text="$*"
+  local GREEN=$'\e[32m'
+  local RESET=$'\e[0m'
+
+  # If stdout is not a terminal (e.g. piped to a file), avoid color codes.
+  if [[ ! -t 1 ]]; then
+    printf '%s\n' "$text"
+    return
+  fi
+
+  printf '%s%s%s\n' "$GREEN" "$text" "$RESET"
+}
+
 #
 # Returns 0 if XRAY_CONFIG_PATH exists, 1 otherwise.
 #
@@ -422,5 +446,5 @@ append_link() {
   } >> "${CLIENT_LINKS_FILE}"
   log_info "Client link saved to file: ${CLIENT_LINKS_FILE}"
   echo "Link:"
-  echo "${link}"
+  print_green "${link}"
 }

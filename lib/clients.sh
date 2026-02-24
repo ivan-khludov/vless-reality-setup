@@ -119,7 +119,7 @@ show_clients() {
     IFS="|" read -r uuid sid client_name < <(get_client_at_index "$i")
     link="$(format_link "$uuid" "$sid" "$public_key" "$server_ip" "$port" "$sni" "$client_name")"
     echo "$(( i + 1 ))) ${uuid}  shortId: ${sid}"
-    echo "${link}"
+    print_green "${link}"
     echo ""
   done
 }
