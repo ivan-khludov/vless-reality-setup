@@ -1,6 +1,7 @@
-# VLESS Reality Server
+# VLESS + Reality VPN Server Setup for Ubuntu VPS (Xray)
 
-One-command setup for a self-hosted **VLESS + Reality** proxy server using Xray.
+This repository provides a simple script to deploy a VLESS server with REALITY transport on an Ubuntu VPS using Xray core.  
+Installation and client management are performed entirely from the terminal in a single interactive script. No Docker containers, no web interfaces, no additional services are required.
 
 ## Requirements
 
