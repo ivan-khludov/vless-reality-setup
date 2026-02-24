@@ -28,7 +28,7 @@ source "${SCRIPT_ROOT}/lib/uninstall.sh"
 # Prints the main menu banner and option list to stdout.
 #
 # @description
-#   Outputs "VLESS Reality Server Manager" header and numbered options 1-11 and 0) Exit. No logic, display only.
+#   Outputs "VLESS Reality Server Manager" header and numbered options 1-12 and 0) Exit. No logic, display only.
 #
 print_menu() {
   echo "==============================="
@@ -45,7 +45,8 @@ print_menu() {
   echo "8) Stop server"
   echo "9) Server status"
   echo "10) Xray logs"
-  echo "11) Uninstall server"
+  echo "11) Restore from backup"
+  echo "12) Uninstall server"
   echo "0) Exit"
   echo ""
 }
@@ -82,8 +83,8 @@ check_config() {
 # Main loop: displays menu, reads option, dispatches to install/add/remove/show/port/sni/uninstall or exit.
 #
 # @description
-#   Loops until user selects 0. Validates option as integer 0-11; on invalid input logs warning and re-prompts.
-#   Options 3 (Remove client) and 11 (Uninstall) require confirmation (Type YES / Type DELETE) before calling remove_client or uninstall_server.
+#   Loops until user selects 0. Validates option as integer 0-12; on invalid input logs warning and re-prompts.
+#   Options 3 (Remove client) and 12 (Uninstall) require confirmation (Type YES / Type DELETE). Option 11 (Restore) requires RESTORE.
 #   Options 7-10 are service actions (start/stop/status/logs). After each action except 0, prompts "Press Enter to continue" then redraws menu.
 #
 run_menu() {
@@ -91,8 +92,8 @@ run_menu() {
     print_menu
     read -r -p "Select option: " option || true
     option="${option//[[:space:]]/}"
-    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 11 ]]; then
-      log_warn "Invalid option. Enter a number 0-11."
+    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 12 ]]; then
+      log_warn "Invalid option. Enter a number 0-12."
       prompt_to_continue
       continue
     fi
@@ -152,6 +153,10 @@ run_menu() {
         prompt_to_continue
         ;;
       11)
+        restore_from_backup
+        prompt_to_continue
+        ;;
+      12)
         uninstall_server
         prompt_to_continue
         ;;

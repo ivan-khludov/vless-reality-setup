@@ -156,6 +156,68 @@ backup_config() {
 }
 
 #
+# Interactive: lists backups, prompts for number and RESTORE, then restores selected backup to XRAY_CONFIG_PATH.
+#
+# @description
+#   Requires root. Does not require config to exist (restore is for recovering missing/corrupted config).
+#   Lists config.json.bak.* in BACKUPS_DIR (newest first by timestamp in filename), prompts for 1-based index,
+#   confirms with "Type RESTORE", runs test_config on selected file, copies to XRAY_CONFIG_PATH, make_config_readable,
+#   restart_xray_then_rewrite_links. On empty list or cancelled confirmation returns 1.
+#
+restore_from_backup() {
+  require_root
+
+  local backup_files sorted count i path base ts date_str n selected
+  shopt -s nullglob
+  backup_files=( "${BACKUPS_DIR}"/config.json.bak.* )
+  shopt -u nullglob
+
+  if [[ ${#backup_files[@]} -eq 0 ]]; then
+    log_warn "No backups found in ${BACKUPS_DIR}."
+    return 1
+  fi
+
+  # Sort by timestamp (suffix after last dot in basename), newest first. Avoids sort -t. -k4 which breaks when path contains dots.
+  mapfile -t sorted < <(
+    for p in "${backup_files[@]}"; do
+      base="$(basename "${p}")"
+      ts="${base##*.}"
+      printf '%s\t%s\n' "${ts}" "${p}"
+    done | sort -t$'\t' -k1 -nr | cut -f2-
+  )
+  count=${#sorted[@]}
+
+  echo "Backups (newest first):"
+  for i in "${!sorted[@]}"; do
+    path="${sorted[i]}"
+    base="$(basename "${path}")"
+    ts="${base##*.}"
+    date_str="$(date -d "@${ts}" 2>/dev/null || echo "${ts}")"
+    echo "  $(( i + 1 ))) ${base}  (${date_str})"
+  done
+  echo ""
+
+  read -r -p "Backup number to restore (1-${count}): " n || true
+  n="${n//[[:space:]]/}"
+  if [[ ! "${n}" =~ ^[0-9]+$ ]] || [[ "${n}" -lt 1 ]] || [[ "${n}" -gt "${count}" ]]; then
+    log_warn "Invalid backup number."
+    return 1
+  fi
+
+  selected="${sorted[n-1]}"
+  if ! confirm_with "Type RESTORE to restore config from backup ${n}: " "RESTORE" "Restore cancelled."; then
+    return 1
+  fi
+
+  log_info "Testing config..."
+  test_config "${selected}"
+  cp "${selected}" "${XRAY_CONFIG_PATH}"
+  make_config_readable
+  restart_xray_then_rewrite_links
+  log_info "Done. Config restored from backup."
+}
+
+#
 # Runs xray -test against a config file; exits 1 if test fails.
 #
 # @description
