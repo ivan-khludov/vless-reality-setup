@@ -19,6 +19,8 @@ source "${SCRIPT_ROOT}/lib/install.sh"
 source "${SCRIPT_ROOT}/lib/clients.sh"
 # shellcheck source=../lib/config.sh
 source "${SCRIPT_ROOT}/lib/config.sh"
+# shellcheck source=../lib/service.sh
+source "${SCRIPT_ROOT}/lib/service.sh"
 # shellcheck source=../lib/uninstall.sh
 source "${SCRIPT_ROOT}/lib/uninstall.sh"
 
@@ -26,7 +28,7 @@ source "${SCRIPT_ROOT}/lib/uninstall.sh"
 # Prints the main menu banner and option list to stdout.
 #
 # @description
-#   Outputs "VLESS Reality Server Manager" header and numbered options 1-7 and 0) Exit. No logic, display only.
+#   Outputs "VLESS Reality Server Manager" header and numbered options 1-11 and 0) Exit. No logic, display only.
 #
 print_menu() {
   echo "==============================="
@@ -39,7 +41,11 @@ print_menu() {
   echo "4) Show clients"
   echo "5) Change port"
   echo "6) Change SNI"
-  echo "7) Uninstall server"
+  echo "7) Start server"
+  echo "8) Stop server"
+  echo "9) Server status"
+  echo "10) Xray logs"
+  echo "11) Uninstall server"
   echo "0) Exit"
   echo ""
 }
@@ -76,17 +82,17 @@ check_config() {
 # Main loop: displays menu, reads option, dispatches to install/add/remove/show/port/sni/uninstall or exit.
 #
 # @description
-#   Loops until user selects 0. Validates option as integer 0-7; on invalid input logs warning and re-prompts.
-#   Options 3 (Remove client) and 7 (Uninstall) require confirmation (Type YES / Type DELETE) before calling remove_client or uninstall_server.
-#   After each action except 0, prompts "Press Enter to continue" then redraws menu.
+#   Loops until user selects 0. Validates option as integer 0-11; on invalid input logs warning and re-prompts.
+#   Options 3 (Remove client) and 11 (Uninstall) require confirmation (Type YES / Type DELETE) before calling remove_client or uninstall_server.
+#   Options 7-10 are service actions (start/stop/status/logs). After each action except 0, prompts "Press Enter to continue" then redraws menu.
 #
 run_menu() {
   while true; do
     print_menu
     read -r -p "Select option: " option || true
     option="${option//[[:space:]]/}"
-    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 7 ]]; then
-      log_warn "Invalid option. Enter a number 0-7."
+    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 11 ]]; then
+      log_warn "Invalid option. Enter a number 0-11."
       prompt_to_continue
       continue
     fi
@@ -126,6 +132,26 @@ run_menu() {
         prompt_to_continue
         ;;
       7)
+        check_config
+        start_server
+        prompt_to_continue
+        ;;
+      8)
+        check_config
+        stop_server
+        prompt_to_continue
+        ;;
+      9)
+        check_config
+        show_server_status
+        prompt_to_continue
+        ;;
+      10)
+        check_config
+        show_xray_logs
+        prompt_to_continue
+        ;;
+      11)
         uninstall_server
         prompt_to_continue
         ;;

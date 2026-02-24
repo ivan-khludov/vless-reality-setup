@@ -1,6 +1,6 @@
 # VLESS + Reality VPN Server Setup for Ubuntu VPS (Xray)
 
-This repository provides a simple script to deploy a VLESS server with REALITY transport on an Ubuntu VPS using Xray core.  
+This repository provides a simple script to deploy a VLESS server with REALITY transport on an Ubuntu VPS using Xray core.
 
 Installation and client management are performed entirely from the terminal in a single interactive script. No Docker containers, no web interfaces, no additional services are required.
 
@@ -32,7 +32,11 @@ You’ll see the main menu:
 4) Show clients
 5) Change port
 6) Change SNI
-7) Uninstall server
+7) Start server
+8) Stop server
+9) Server status
+10) Xray logs
+11) Uninstall server
 0) Exit
 
 Select option:
@@ -44,7 +48,11 @@ Select option:
 - **4) Show clients** — Lists all clients with their numbers, UUIDs, shortIds, and VLESS links.
 - **5) Change port** — Prompts for the new listen port, updates config, restarts Xray, and rewrites client links.
 - **6) Change SNI** — Prompts for the new SNI (and updates Reality dest), restarts Xray, and rewrites client links.
-- **7) Uninstall server** — Stops and disables Xray, removes the binary, config directory, and systemd unit. You must type **DELETE** to confirm. The `files/` directory (keys and client links) is left intact.
+- **7) Start server** — Starts the Xray systemd service.
+- **8) Stop server** — Stops the Xray systemd service.
+- **9) Server status** — Shows `systemctl status xray`.
+- **10) Xray logs** — Shows live logs (`journalctl -u xray -f`); press Ctrl+C to exit.
+- **11) Uninstall server** — Stops and disables Xray, removes the binary, config directory, and systemd unit. You must type **DELETE** to confirm. The `files/` directory (keys and client links) is left intact.
 - **0) Exit** — Quit the manager.
 
 Dangerous actions (**Remove client** and **Uninstall server**) require explicit confirmation as noted above.
@@ -66,12 +74,5 @@ You can restore by copying a backup over `config.json` and restarting Xray if ne
 | `files/vless-reality-clients.txt`           | Client VLESS links (`files/` is gitignored)                                                                   |
 | `files/.vless-reality-public-key`           | Server Reality public key; used when adding clients                                                           |
 | `files/server-ip`                           | Cached server IP for links; set at first run. Edit and re-run “Change port” or “Change SNI” to refresh links. |
-
-## Service
-
-- **Start:** `sudo systemctl start xray`
-- **Stop:** `sudo systemctl stop xray`
-- **Status:** `sudo systemctl status xray`
-- **Logs:** `journalctl -u xray -f`
 
 Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
