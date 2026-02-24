@@ -57,6 +57,12 @@ Select option:
 
 Dangerous actions (**Remove client** and **Uninstall server**) require explicit confirmation as noted above.
 
+### Example install output
+
+After the first install, the script prints the initial VLESS link:
+
+![First VLESS link output](assets/link_example.png)
+
 ## Backup
 
 Before every config change (add/remove client, change port or SNI), a backup of the current Xray config is created in `files/backups/` with a timestamped name:
