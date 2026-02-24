@@ -12,7 +12,7 @@ Installation and client management are performed entirely from the terminal in a
 
 ## Running the manager
 
-From the repo root:
+Clone the repository (e.g. from your home directory), then run the manager from the repo directory:
 
 ```bash
 git clone https://github.com/ivan-khludov/vless-reality-setup.git
