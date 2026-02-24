@@ -36,7 +36,8 @@ You’ll see the main menu:
 8) Stop server
 9) Server status
 10) Xray logs
-11) Uninstall server
+11) Restore from backup
+12) Uninstall server
 0) Exit
 
 Select option:
@@ -52,7 +53,8 @@ Select option:
 - **8) Stop server** — Stops the Xray systemd service.
 - **9) Server status** — Shows `systemctl status xray`.
 - **10) Xray logs** — Shows live logs (`journalctl -u xray -f`); press Ctrl+C to exit.
-- **11) Uninstall server** — Stops and disables Xray, removes the binary, config directory, and systemd unit. You must type **DELETE** to confirm. The `files/` directory (keys and client links) is left intact.
+- **11) Restore from backup** — Lists backups in `files/backups/` (newest first); choose by number, type **RESTORE** to confirm. Restores config, restarts Xray, and rewrites the client links file.
+- **12) Uninstall server** — Stops and disables Xray, removes the binary, config directory, and systemd unit. You must type **DELETE** to confirm. The `files/` directory (keys and client links) is left intact.
 - **0) Exit** — Quit the manager.
 
 Dangerous actions (**Remove client** and **Uninstall server**) require explicit confirmation as noted above.
@@ -69,7 +71,7 @@ Before every config change (add/remove client, change port or SNI), a backup of 
 
 - **Path:** `files/backups/config.json.bak.<unix_timestamp>`
 
-You can restore by copying a backup over `config.json` and restarting Xray if needed.
+You can restore from the menu (option 11) or manually by copying a backup over `config.json` and restarting Xray.
 
 ## Important paths
 
