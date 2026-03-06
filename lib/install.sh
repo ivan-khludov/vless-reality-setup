@@ -2,6 +2,7 @@
 # Sourced by bin/vless-manager.sh. No backup on first install (no existing config).
 
 readonly XRAY_INSTALL_SCRIPT_URL="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+readonly XRAY_VERSION="v26.2.6"
 
 #
 # Writes hardened systemd unit for Xray (sandbox, Restart=on-failure, minimal capabilities).
@@ -86,22 +87,27 @@ install_dependencies() {
 }
 
 #
-# Installs Xray via official XTLS install script if not already present.
+# Installs pinned Xray version via official XTLS install script.
 #
 # @description
-#   Skips if xray binary exists at /usr/local/bin/xray. Otherwise downloads and runs install-release.sh.
+#   Ensures XRAY_VERSION is installed. If Xray is already installed with the same version, skips.
 #
 install_xray() {
+  local current_version=""
   if command -v xray >/dev/null 2>&1 && [[ -x /usr/local/bin/xray ]]; then
-    log_info "Xray is already installed, skipping installation."
-    return
+    current_version="$(/usr/local/bin/xray -version 2>/dev/null | awk 'NR==1 {print $2}')" || true
+    current_version="v${current_version#v}"
+    if [[ -n "${current_version}" && "${current_version}" == "${XRAY_VERSION}" ]]; then
+      log_info "Xray ${XRAY_VERSION} is already installed, skipping installation."
+      return
+    fi
   fi
 
-  log_info "Installing Xray via official script..."
+  log_info "Installing Xray ${XRAY_VERSION} via official script..."
   local script_path
   script_path="$(mktemp)"
   curl -LsS "${XRAY_INSTALL_SCRIPT_URL}" -o "${script_path}"
-  bash "${script_path}" install -u root
+  bash "${script_path}" install --version "${XRAY_VERSION}" -u root
   rm -f "${script_path}"
 }
 
