@@ -32,7 +32,7 @@ stop_server() {
 #   Runs systemctl status xray; output goes to terminal.
 #
 show_server_status() {
-  systemctl status xray
+  systemctl --no-pager status xray
 }
 
 #
@@ -43,5 +43,19 @@ show_server_status() {
 #
 show_xray_logs() {
   log_info "Press Ctrl+C to exit logs."
-  journalctl -u xray -f || true
+  local pid=""
+  local old_trap_int=""
+
+  old_trap_int="$(trap -p INT || true)"
+  trap '[[ -n "${pid}" ]] && kill -INT "${pid}" 2>/dev/null || true' INT
+
+  journalctl -u xray -f &
+  pid="$!"
+  wait "${pid}" || true
+
+  if [[ -n "${old_trap_int}" ]]; then
+    eval "${old_trap_int}"
+  else
+    trap - INT
+  fi
 }
