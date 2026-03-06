@@ -15,7 +15,7 @@ is_ufw_active() {
 }
 
 #
-# Adds ufw allow rules for SSH and VLESS port (idempotent). Returns 1 if any allow fails.
+# Adds ufw allow rules for SSH, VLESS port, and health port (idempotent). Returns 1 if any allow fails.
 #
 # @param $1 port - VLESS listen port (number)
 #
@@ -27,6 +27,10 @@ ufw_allow_ssh_and_vless_port() {
   fi
   if ! ufw allow "${port}/tcp" >/dev/null 2>&1; then
     log_error "Failed to add allow rule for port ${port}"
+    return 1
+  fi
+  if ! ufw allow "${HEALTH_PORT}/tcp" >/dev/null 2>&1; then
+    log_error "Failed to add allow rule for health port ${HEALTH_PORT}"
     return 1
   fi
 }
@@ -42,9 +46,9 @@ ufw_enable_with_rules() {
     return 1
   fi
   ufw --force enable >/dev/null 2>&1 || true
-  log_info "Firewall enabled. Rules: ${SSH_PORT}/tcp (SSH), ${vless_port}/tcp (VLESS)."
+  log_info "Firewall enabled. Rules: ${SSH_PORT}/tcp (SSH), ${vless_port}/tcp (VLESS), ${HEALTH_PORT}/tcp (health)."
   echo ""
-  ufw status | grep -E "${SSH_PORT}|${vless_port}" || ufw status
+  ufw status | grep -E "${SSH_PORT}|${vless_port}|${HEALTH_PORT}" || ufw status
 }
 
 #

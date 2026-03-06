@@ -21,6 +21,10 @@ readonly CLIENT_LINKS_FILE="${FILES_DIR}/vless-reality-clients.txt"
 readonly SERVER_PUBLIC_KEY_FILE="${FILES_DIR}/.vless-reality-public-key"
 readonly SERVER_IP_FILE="${FILES_DIR}/server-ip"
 
+readonly HEALTH_PORT=8080
+readonly HEALTH_SCRIPT_PATH="/usr/local/lib/vless-reality/health-responder.sh"
+readonly HEALTH_SYSTEMD_UNIT="/etc/systemd/system/vless-health.service"
+
 # ===== Helpers =====
 
 

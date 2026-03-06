@@ -75,15 +75,15 @@ detect_ubuntu() {
 }
 
 #
-# Installs apt dependencies: curl, openssl, uuid-runtime, jq, ufw.
+# Installs apt dependencies: curl, openssl, uuid-runtime, jq, ufw, socat.
 #
 # @description
-#   Runs apt-get update and apt-get install. Requires root. ufw is installed for optional firewall (menu option 12).
+#   Runs apt-get update and apt-get install. Requires root. ufw is installed for optional firewall (menu option 12). socat is used for the health endpoint.
 #
 install_dependencies() {
-  log_info "Installing dependencies (curl, openssl, uuid-runtime, jq, ufw)..."
+  log_info "Installing dependencies (curl, openssl, uuid-runtime, jq, ufw, socat)..."
   apt-get update -qq -y
-  apt-get install -qq -y curl openssl uuid-runtime jq ufw
+  apt-get install -qq -y curl openssl uuid-runtime jq ufw socat
 }
 
 #
@@ -219,6 +219,36 @@ write_config() {
 }
 
 #
+# Installs health endpoint: copies script, writes systemd unit, enables vless-health.
+#
+# @description
+#   Creates HEALTH_SCRIPT_PATH dir, copies scripts/health-responder.sh from repo, chmod +x, writes HEALTH_SYSTEMD_UNIT, daemon-reload, enable --now vless-health. Exits on copy/chmod failure; logs warning if service start fails.
+#
+setup_health_endpoint() {
+  log_info "Setting up health endpoint on port ${HEALTH_PORT}..."
+  mkdir -p "$(dirname "${HEALTH_SCRIPT_PATH}")" || { log_error "Cannot create health script directory."; exit 1; }
+  cp "${_root}/scripts/health-responder.sh" "${HEALTH_SCRIPT_PATH}" || { log_error "Cannot copy health-responder.sh."; exit 1; }
+  chmod +x "${HEALTH_SCRIPT_PATH}" || { log_error "Cannot chmod health-responder.sh."; exit 1; }
+  tee "${HEALTH_SYSTEMD_UNIT}" >/dev/null << HEALTH_UNIT_EOF
+[Unit]
+Description=VLESS Health Endpoint (socat)
+After=network.target
+
+[Service]
+User=nobody
+Group=nogroup
+ExecStart=/usr/bin/socat TCP-LISTEN:${HEALTH_PORT},reuseaddr,fork,max-children=8,backlog=16 SYSTEM:"${HEALTH_SCRIPT_PATH}",stderr
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+HEALTH_UNIT_EOF
+  systemctl daemon-reload
+  systemctl enable --now vless-health >/dev/null 2>&1 || { log_warn "Failed to start vless-health; check with systemctl status vless-health."; }
+}
+
+#
 # Entry point: installs Xray, creates config, starts service, and prints first client link.
 #
 # @description
@@ -263,6 +293,8 @@ install_server() {
   test_config "${XRAY_CONFIG_PATH}"
   append_link "$uuid_value" "$short_id" "$public_key" "$port" "$sni" "$client_name"
   restart_xray
+  setup_health_endpoint
 
   log_info "Done. Xray with VLESS+Reality is running on port ${port}."
+  log_info "Health endpoint available at http://$(get_server_ip):${HEALTH_PORT}/health"
 }

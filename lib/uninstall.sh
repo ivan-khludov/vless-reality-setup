@@ -22,6 +22,11 @@ uninstall_server() {
   systemctl disable xray 2>/dev/null || true
   systemctl reset-failed xray 2>/dev/null || true
 
+  log_info "Stopping and disabling health endpoint service..."
+  systemctl stop vless-health 2>/dev/null || true
+  systemctl disable vless-health 2>/dev/null || true
+  systemctl reset-failed vless-health 2>/dev/null || true
+
   if is_ufw_active; then
     ufw_disable
   fi
@@ -29,6 +34,10 @@ uninstall_server() {
   if [[ -f "${XRAY_SYSTEMD_UNIT}" ]]; then
     log_info "Removing systemd unit: ${XRAY_SYSTEMD_UNIT}"
     rm -f "${XRAY_SYSTEMD_UNIT}"
+  fi
+  if [[ -f "${HEALTH_SYSTEMD_UNIT}" ]]; then
+    log_info "Removing systemd unit: ${HEALTH_SYSTEMD_UNIT}"
+    rm -f "${HEALTH_SYSTEMD_UNIT}"
   fi
   systemctl daemon-reload 2>/dev/null || true
 
@@ -40,6 +49,19 @@ uninstall_server() {
   if [[ -d "${XRAY_CONFIG_DIR}" ]]; then
     log_info "Removing config directory: ${XRAY_CONFIG_DIR}"
     rm -rf "${XRAY_CONFIG_DIR}"
+  fi
+
+  if [[ -f "${HEALTH_SCRIPT_PATH}" ]]; then
+    log_info "Removing health endpoint script: ${HEALTH_SCRIPT_PATH}"
+    rm -f "${HEALTH_SCRIPT_PATH}"
+  fi
+  if [[ -d "$(dirname "${HEALTH_SCRIPT_PATH}")" ]]; then
+    rmdir "$(dirname "${HEALTH_SCRIPT_PATH}")" 2>/dev/null || true
+  fi
+
+  if command -v apt-get &>/dev/null && dpkg -l socat &>/dev/null; then
+    log_info "Removing socat (was used for health endpoint)..."
+    apt-get remove -y socat >/dev/null 2>&1 || true
   fi
 
   if [[ -d "${FILES_DIR}" ]]; then
@@ -71,5 +93,5 @@ uninstall_server() {
   fi
 
   log_info "Uninstall complete."
-  log_info "Note: curl, openssl, jq, uuid-runtime were not removed (common system tools)."
+  log_info "Note: socat was removed. curl, openssl, jq, uuid-runtime were not removed (common system tools)."
 }
