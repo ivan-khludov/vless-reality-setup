@@ -60,7 +60,7 @@ Select option:
 
 Options 2–12 are only visible after the server is installed. Descriptions:
 
-- **1) Install / Uninstall** — Label shows **Install** when the server is not installed, **Uninstall** when config exists. **Install:** first-time setup: installs dependencies and Xray, generates keys, creates VLESS Reality config, starts the service, and prints the first client link. You’ll be prompted for SNI (default `www.cloudflare.com`), listen port (default 443), and client name. **Uninstall:** you must type **DELETE** to confirm. Then it stops and disables Xray, disables the firewall (ufw) if it was on, and removes the systemd unit, Xray binary, and config directory. You are asked whether to remove client data in `files/` (keys, backups, client links); default is yes. You are then asked whether to remove ufw (firewall) if it was installed by the script; default is no. curl, openssl, jq, and uuid-runtime are not removed (common system tools).
+- **1) Install / Uninstall** — Label shows **Install** when the server is not installed, **Uninstall** when config exists. **Install:** first-time setup: installs dependencies and Xray, generates keys, creates VLESS Reality config, starts the service, sets up a health endpoint on port 8080 (socat + script), and prints the first client link and the health URL. You’ll be prompted for SNI (default `www.cloudflare.com`), listen port (default 443), and client name. **Uninstall:** you must type **DELETE** to confirm. Then it stops and disables Xray and the health endpoint, disables the firewall (ufw) if it was on, and removes the systemd units, Xray binary, config directory, health script, and socat. You are asked whether to remove client data in `files/` (keys, backups, client links); default is yes. You are then asked whether to remove ufw (firewall) if it was installed by the script; default is no. curl, openssl, jq, and uuid-runtime are not removed (common system tools).
 - **2) Add client** — Adds a new client (new UUID and short id), restarts Xray, and appends the new link to the clients file. Requires an existing install.
 - **3) Remove client** — Shows the client list, then asks for the client number to remove. You must type **YES** to confirm. Restarts Xray and rewrites the clients file.
 - **4) Show clients** — Lists all clients with their numbers, UUIDs, shortIds, and VLESS links.
@@ -71,7 +71,7 @@ Options 2–12 are only visible after the server is installed. Descriptions:
 - **9) Server status** — Shows `systemctl status xray`.
 - **10) Xray logs** — Shows live logs (`journalctl -u xray -f`); press Ctrl+C to exit.
 - **11) Restore clients from backup** — Lists backups in `files/backups/` (newest first); choose by number, type **RESTORE** to confirm. Restores config, restarts Xray, and rewrites the client links file.
-- **12) Turn on Firewall / Turn off Firewall** — Label depends on whether ufw is active. Turn on: allows SSH (22/tcp) and the current VLESS port, then enables ufw. Turn off: disables ufw. Firewall is not enabled at install time.
+- **12) Turn on Firewall / Turn off Firewall** — Label depends on whether ufw is active. Turn on: allows SSH (22/tcp), the current VLESS port, and the health port (8080/tcp), then enables ufw. Turn off: disables ufw. Firewall is not enabled at install time.
 - **0) Exit** — Quit the manager.
 
 Dangerous actions (**Remove client** and **Uninstall server**) require explicit confirmation as noted above.
@@ -96,6 +96,7 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 | Path                                        | Description                                                                                                   |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `/usr/local/etc/xray/config.json`           | Xray config                                                                                                   |
+| `http://<server>:8080/health`               | Health endpoint (installed at Install); returns 200 + `{"status":"OK"}` when Xray is running, 503 when not, 404 for other paths |
 | `files/backups/config.json.bak.<timestamp>` | Timestamped config backups (created before each config change)                                                |
 | `files/vless-reality-clients.txt`           | Client VLESS links (`files/` is gitignored)                                                                   |
 | `files/.vless-reality-public-key`           | Server Reality public key; used when adding clients                                                           |
@@ -106,5 +107,6 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 - **Xray** runs as the unprivileged user `nobody` with minimal capabilities (`CAP_NET_BIND_SERVICE` only). A hardened systemd unit is applied at install time: strict sandboxing (`ProtectSystem`, `ProtectHome`, `PrivateTmp`, etc.), no write access outside the service runtime, and config directory read-only.
 - **Restart policy:** `Restart=on-failure` with a short delay and a start limit so the service recovers from crashes without looping indefinitely.
 - Logs go to the system journal (`journalctl -u xray -f`); see menu option 10.
+- **Health endpoint:** A lightweight HTTP endpoint runs on port 8080 (socat + shell script) for monitoring: `GET /health` returns 200 and `{"status":"OK"}` when Xray is running, 503 and `{"status":"error","problems":["xray not running"]}` when it is not, and 404 for other paths. Logs: `journalctl -u vless-health`.
 
 Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
