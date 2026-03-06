@@ -33,6 +33,7 @@ docker rm -f "${container_name}" >/dev/null 2>&1 || true
 docker run -d --privileged \
   --name "${container_name}" \
   --hostname "${container_name}" \
+  --add-host="${container_name}:127.0.0.1" \
   --network=host \
   --cgroupns=host \
   -v /sys/fs/cgroup:/sys/fs/cgroup:rw \

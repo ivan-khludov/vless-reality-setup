@@ -5,6 +5,9 @@ IFS=$'\n\t'
 
 # ===== Constants =====
 readonly XRAY_CONFIG_PATH="/usr/local/etc/xray/config.json"
+readonly XRAY_SYSTEMD_UNIT="/etc/systemd/system/xray.service"
+readonly XRAY_BINARY="/usr/local/bin/xray"
+readonly XRAY_CONFIG_DIR="/usr/local/etc/xray"
 readonly DEFAULT_PORT=443
 readonly DEFAULT_SNI="www.cloudflare.com"
 readonly DEFAULT_CLIENT_NAME="auto-vless-reality"
