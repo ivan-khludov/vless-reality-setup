@@ -30,31 +30,33 @@ source "${SCRIPT_ROOT}/lib/uninstall.sh"
 # Prints the main menu banner and option list to stdout.
 #
 # @description
-#   Outputs "VLESS Reality Server Manager" header and numbered options 1-13 and 0) Exit.
-#   Option 12 label depends on firewall status (Turn on / Turn off Firewall).
+#   Outputs "VLESS Reality Server Manager" header. Before install (no config): only 1) Install and 0) Exit. After install: options 1-12 and 0; option 1 label is Uninstall, option 12 label depends on firewall status (Turn on / Turn off Firewall).
 #
 print_menu() {
   echo "==============================="
   echo "  VLESS Reality Server Manager"
   echo "==============================="
   echo ""
-  echo "1) Install"
-  echo "2) Add client"
-  echo "3) Remove client"
-  echo "4) Show clients"
-  echo "5) Change port"
-  echo "6) Change SNI"
-  echo "7) Start server"
-  echo "8) Stop server"
-  echo "9) Server status"
-  echo "10) Xray logs"
-  echo "11) Restore from backup"
-  if is_ufw_active; then
-    echo "12) Turn off Firewall"
+  if config_exists; then
+    echo "1) Uninstall"
+    echo "2) Add client"
+    echo "3) Remove client"
+    echo "4) Show clients"
+    echo "5) Change port"
+    echo "6) Change SNI"
+    echo "7) Start server"
+    echo "8) Stop server"
+    echo "9) Server status"
+    echo "10) Xray logs"
+    echo "11) Restore clients from backup"
+    if is_ufw_active; then
+      echo "12) Turn off Firewall"
+    else
+      echo "12) Turn on Firewall"
+    fi
   else
-    echo "12) Turn on Firewall"
+    echo "1) Install"
   fi
-  echo "13) Uninstall"
   echo "0) Exit"
   echo ""
 }
@@ -88,11 +90,11 @@ check_config() {
 }
 
 #
-# Main loop: displays menu, reads option, dispatches to install/add/remove/show/port/sni/firewall/uninstall or exit.
+# Main loop: displays menu, reads option, dispatches to install/uninstall/add/remove/show/port/sni/firewall or exit.
 #
 # @description
-#   Loops until user selects 0. Validates option as integer 0-13; on invalid input logs warning and re-prompts.
-#   Option 12 toggles firewall (Turn on / Turn off). Option 13 (Uninstall) requires confirmation (Type DELETE).
+#   Loops until user selects 0. Before install only 0 and 1 are accepted; after install options 0-12. On invalid input logs warning and re-prompts.
+#   Option 1 runs Install or Uninstall depending on whether config exists (Uninstall requires confirmation: Type DELETE). Option 12 toggles firewall (Turn on / Turn off).
 #   After each action except 0, prompts "Press Enter to continue" then redraws menu.
 #
 run_menu() {
@@ -100,8 +102,14 @@ run_menu() {
     print_menu
     read -r -p "Select option: " option || true
     option="${option//[[:space:]]/}"
-    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 13 ]]; then
-      log_warn "Invalid option. Enter a number 0-13."
+    local max_option=12
+    config_exists || max_option=1
+    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt "${max_option}" ]]; then
+      if [[ "${max_option}" -eq 1 ]]; then
+        log_warn "Invalid option. Enter 0 or 1."
+      else
+        log_warn "Invalid option. Enter a number 0-12."
+      fi
       prompt_to_continue
       continue
     fi
@@ -112,7 +120,11 @@ run_menu() {
         exit 0
         ;;
       1)
-        install_server
+        if config_exists; then
+          uninstall_server
+        else
+          install_server
+        fi
         prompt_to_continue
         ;;
       2)
@@ -166,10 +178,6 @@ run_menu() {
         ;;
       12)
         toggle_firewall
-        prompt_to_continue
-        ;;
-      13)
-        uninstall_server
         prompt_to_continue
         ;;
     esac
