@@ -46,7 +46,7 @@ print_menu() {
   echo "9) Server status"
   echo "10) Xray logs"
   echo "11) Restore from backup"
-  echo "12) Uninstall server"
+  echo "12) Uninstall"
   echo "0) Exit"
   echo ""
 }

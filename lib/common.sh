@@ -142,17 +142,58 @@ confirm_with() {
 }
 
 #
-# Creates a timestamped backup of the current Xray config.
+# Returns list of backup files sorted newest first on stdout.
+#
+# @description
+#   Emits one path per line for files matching "${BACKUPS_DIR}/config.json.bak.*",
+#   sorted by timestamp suffix in the filename (config.json.bak.<unix_timestamp>),
+#   newest first. Prints nothing if no backups exist.
+#
+list_backups_sorted_newest_first() {
+  local backup_files=()
+  local base ts
+
+  shopt -s nullglob
+  backup_files=( "${BACKUPS_DIR}"/config.json.bak.* )
+  shopt -u nullglob
+
+  if [[ ${#backup_files[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  for p in "${backup_files[@]}"; do
+    base="$(basename "${p}")"
+    ts="${base##*.}"
+    printf '%s\t%s\n' "${ts}" "${p}"
+  done | sort -t$'\t' -k1 -nr | cut -f2-
+}
+
+#
+# Creates a timestamped backup of the current Xray config and prunes old backups.
 #
 # @description
 #   Copies XRAY_CONFIG_PATH to BACKUPS_DIR with name config.json.bak.<unix_timestamp>.
-#   Logs the backup path via log_info. Call before any config change (add/remove client, update port/sni).
+#   Logs the backup path via log_info. After creating the backup, keeps only the 20 most
+#   recent backups and deletes older ones.
+#   Call before any config change (add/remove client, update port/sni).
 #
 backup_config() {
   mkdir -p "${BACKUPS_DIR}"
   local backup_path="${BACKUPS_DIR}/config.json.bak.$(date +%s)"
   cp "${XRAY_CONFIG_PATH}" "${backup_path}"
   log_info "Config backed up to ${backup_path}"
+
+  local sorted=()
+  local max_backups=20
+  local count i
+
+  mapfile -t sorted < <(list_backups_sorted_newest_first)
+  count=${#sorted[@]}
+  if (( count > max_backups )); then
+    for (( i = max_backups; i < count; i++ )); do
+      rm -f "${sorted[i]}"
+    done
+  fi
 }
 
 #
@@ -167,25 +208,15 @@ backup_config() {
 restore_from_backup() {
   require_root
 
-  local backup_files sorted count i path base ts date_str n selected
-  shopt -s nullglob
-  backup_files=( "${BACKUPS_DIR}"/config.json.bak.* )
-  shopt -u nullglob
+  local sorted=() count i path base ts date_str n selected
 
-  if [[ ${#backup_files[@]} -eq 0 ]]; then
+  mapfile -t sorted < <(list_backups_sorted_newest_first)
+  count=${#sorted[@]}
+
+  if [[ ${count} -eq 0 ]]; then
     log_warn "No backups found in ${BACKUPS_DIR}."
     return 1
   fi
-
-  # Sort by timestamp (suffix after last dot in basename), newest first. Avoids sort -t. -k4 which breaks when path contains dots.
-  mapfile -t sorted < <(
-    for p in "${backup_files[@]}"; do
-      base="$(basename "${p}")"
-      ts="${base##*.}"
-      printf '%s\t%s\n' "${ts}" "${p}"
-    done | sort -t$'\t' -k1 -nr | cut -f2-
-  )
-  count=${#sorted[@]}
 
   echo "Backups (newest first):"
   for i in "${!sorted[@]}"; do
