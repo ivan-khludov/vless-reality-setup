@@ -136,8 +136,10 @@ confirm_with() {
   local cancel_message="$3"
   local input
   read -r -p "${prompt}" input || true
+  input="${input//[[:cntrl:]]/}"
   input="${input//[[:space:]]/}"
-  if [[ "${input}" != "${expected_word}" ]]; then
+  input="${input//[^[:alpha:]]/}"
+  if [[ "${input^^}" != "${expected_word^^}" ]]; then
     log_warn "${cancel_message}"
     return 1
   fi
