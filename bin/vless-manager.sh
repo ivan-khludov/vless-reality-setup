@@ -17,6 +17,8 @@ source "${SCRIPT_ROOT}/lib/validation.sh"
 source "${SCRIPT_ROOT}/lib/install.sh"
 # shellcheck source=../lib/clients.sh
 source "${SCRIPT_ROOT}/lib/clients.sh"
+# shellcheck source=../lib/firewall.sh
+source "${SCRIPT_ROOT}/lib/firewall.sh"
 # shellcheck source=../lib/config.sh
 source "${SCRIPT_ROOT}/lib/config.sh"
 # shellcheck source=../lib/service.sh
@@ -28,7 +30,8 @@ source "${SCRIPT_ROOT}/lib/uninstall.sh"
 # Prints the main menu banner and option list to stdout.
 #
 # @description
-#   Outputs "VLESS Reality Server Manager" header and numbered options 1-12 and 0) Exit. No logic, display only.
+#   Outputs "VLESS Reality Server Manager" header and numbered options 1-13 and 0) Exit.
+#   Option 12 label depends on firewall status (Turn on / Turn off Firewall).
 #
 print_menu() {
   echo "==============================="
@@ -46,7 +49,12 @@ print_menu() {
   echo "9) Server status"
   echo "10) Xray logs"
   echo "11) Restore from backup"
-  echo "12) Uninstall"
+  if is_ufw_active; then
+    echo "12) Turn off Firewall"
+  else
+    echo "12) Turn on Firewall"
+  fi
+  echo "13) Uninstall"
   echo "0) Exit"
   echo ""
 }
@@ -80,20 +88,20 @@ check_config() {
 }
 
 #
-# Main loop: displays menu, reads option, dispatches to install/add/remove/show/port/sni/uninstall or exit.
+# Main loop: displays menu, reads option, dispatches to install/add/remove/show/port/sni/firewall/uninstall or exit.
 #
 # @description
-#   Loops until user selects 0. Validates option as integer 0-12; on invalid input logs warning and re-prompts.
-#   Options 3 (Remove client) and 12 (Uninstall) require confirmation (Type YES / Type DELETE). Option 11 (Restore) requires RESTORE.
-#   Options 7-10 are service actions (start/stop/status/logs). After each action except 0, prompts "Press Enter to continue" then redraws menu.
+#   Loops until user selects 0. Validates option as integer 0-13; on invalid input logs warning and re-prompts.
+#   Option 12 toggles firewall (Turn on / Turn off). Option 13 (Uninstall) requires confirmation (Type DELETE).
+#   After each action except 0, prompts "Press Enter to continue" then redraws menu.
 #
 run_menu() {
   while true; do
     print_menu
     read -r -p "Select option: " option || true
     option="${option//[[:space:]]/}"
-    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 12 ]]; then
-      log_warn "Invalid option. Enter a number 0-12."
+    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt 13 ]]; then
+      log_warn "Invalid option. Enter a number 0-13."
       prompt_to_continue
       continue
     fi
@@ -157,6 +165,10 @@ run_menu() {
         prompt_to_continue
         ;;
       12)
+        toggle_firewall
+        prompt_to_continue
+        ;;
+      13)
         uninstall_server
         prompt_to_continue
         ;;
