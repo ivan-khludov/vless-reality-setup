@@ -4,6 +4,59 @@
 readonly XRAY_INSTALL_SCRIPT_URL="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 
 #
+# Writes hardened systemd unit for Xray (sandbox, Restart=on-failure, minimal capabilities).
+#
+# @description
+#   Overrides the unit installed by install-release.sh. Config is read-only; logs go to journal only (no /var/log/xray).
+#
+apply_hardened_xray_unit() {
+  log_info "Applying hardened systemd unit for Xray..."
+  tee "${XRAY_SYSTEMD_UNIT}" >/dev/null << 'XRAY_UNIT_EOF'
+[Unit]
+Description=Xray Service (VLESS + Reality)
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target nss-lookup.target
+
+[Service]
+User=nobody
+Group=nogroup
+
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+
+ReadOnlyPaths=/usr/local/etc/xray
+
+ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+
+Restart=on-failure
+RestartSec=10s
+StartLimitIntervalSec=60s
+StartLimitBurst=3
+
+LimitNPROC=512
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+XRAY_UNIT_EOF
+  systemctl daemon-reload
+}
+
+#
 # Detects Ubuntu and logs a warning if not Ubuntu.
 #
 # @description
@@ -194,6 +247,7 @@ install_server() {
 
   install_dependencies
   install_xray
+  apply_hardened_xray_unit
 
   local uuid_value private_key public_key short_id
   IFS="|" read -r uuid_value private_key public_key short_id < <(generate_keys)

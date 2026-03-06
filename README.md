@@ -84,4 +84,10 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 | `files/.vless-reality-public-key`           | Server Reality public key; used when adding clients                                                           |
 | `files/server-ip`                           | Cached server IP for links; set at first run. Edit and re-run “Change port” or “Change SNI” to refresh links. |
 
+## Security and reliability
+
+- **Xray** runs as the unprivileged user `nobody` with minimal capabilities (`CAP_NET_BIND_SERVICE` only). A hardened systemd unit is applied at install time: strict sandboxing (`ProtectSystem`, `ProtectHome`, `PrivateTmp`, etc.), no write access outside the service runtime, and config directory read-only.
+- **Restart policy:** `Restart=on-failure` with a short delay and a start limit so the service recovers from crashes without looping indefinitely.
+- Logs go to the system journal (`journalctl -u xray -f`); see menu option 10.
+
 Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).

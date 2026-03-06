@@ -1,9 +1,6 @@
 # Uninstall Xray and remove config. Depends on common, log.
 # Sourced by bin/vless-manager.sh.
 
-readonly XRAY_SYSTEMD_UNIT="/etc/systemd/system/xray.service"
-readonly XRAY_BINARY="/usr/local/bin/xray"
-readonly XRAY_CONFIG_DIR="/usr/local/etc/xray"
 
 #
 # Interactive: prompts "Type DELETE" to confirm, then stops Xray, removes unit, binary, and config dir.
