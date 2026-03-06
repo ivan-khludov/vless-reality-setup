@@ -75,15 +75,15 @@ detect_ubuntu() {
 }
 
 #
-# Installs apt dependencies: curl, openssl, uuid-runtime, jq.
+# Installs apt dependencies: curl, openssl, uuid-runtime, jq, ufw.
 #
 # @description
-#   Runs apt-get update and apt-get install. Requires root.
+#   Runs apt-get update and apt-get install. Requires root. ufw is installed for optional firewall (menu option 12).
 #
 install_dependencies() {
-  log_info "Installing dependencies (curl, openssl, uuid-runtime, jq)..."
+  log_info "Installing dependencies (curl, openssl, uuid-runtime, jq, ufw)..."
   apt-get update -qq -y
-  apt-get install -qq -y curl openssl uuid-runtime jq
+  apt-get install -qq -y curl openssl uuid-runtime jq ufw
 }
 
 #

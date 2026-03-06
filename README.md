@@ -37,7 +37,8 @@ You’ll see the main menu:
 9) Server status
 10) Xray logs
 11) Restore from backup
-12) Uninstall
+12) Turn on Firewall / Turn off Firewall
+13) Uninstall
 0) Exit
 
 Select option:
@@ -47,14 +48,15 @@ Select option:
 - **2) Add client** — Adds a new client (new UUID and short id), restarts Xray, and appends the new link to the clients file. Requires an existing install.
 - **3) Remove client** — Shows the client list, then asks for the client number to remove. You must type **YES** to confirm. Restarts Xray and rewrites the clients file.
 - **4) Show clients** — Lists all clients with their numbers, UUIDs, shortIds, and VLESS links.
-- **5) Change port** — Prompts for the new listen port, updates config, restarts Xray, and rewrites client links.
+- **5) Change port** — Prompts for the new listen port, updates config, restarts Xray, and rewrites client links. If the firewall (ufw) is on, the old port is closed and the new port is opened automatically.
 - **6) Change SNI** — Prompts for the new SNI (and updates Reality dest), restarts Xray, and rewrites client links.
 - **7) Start server** — Starts the Xray systemd service.
 - **8) Stop server** — Stops the Xray systemd service.
 - **9) Server status** — Shows `systemctl status xray`.
 - **10) Xray logs** — Shows live logs (`journalctl -u xray -f`); press Ctrl+C to exit.
 - **11) Restore from backup** — Lists backups in `files/backups/` (newest first); choose by number, type **RESTORE** to confirm. Restores config, restarts Xray, and rewrites the client links file.
-- **12) Uninstall** — Stops and disables Xray, removes the binary, config directory, and systemd unit. You must type **DELETE** to confirm. The `files/` directory (keys and client links) is left intact.
+- **12) Turn on Firewall / Turn off Firewall** — Label depends on whether ufw is active. Turn on: allows SSH (22/tcp) and the current VLESS port, then enables ufw. Turn off: disables ufw. Firewall is not enabled at install time.
+- **13) Uninstall** — Stops and disables Xray, removes the binary, config directory, and systemd unit. You must type **DELETE** to confirm. The `files/` directory (keys and client links) is left intact.
 - **0) Exit** — Quit the manager.
 
 Dangerous actions (**Remove client** and **Uninstall server**) require explicit confirmation as noted above.
