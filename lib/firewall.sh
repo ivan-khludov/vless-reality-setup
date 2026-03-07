@@ -45,7 +45,9 @@ ufw_enable_with_rules() {
   if ! ufw_allow_ssh_and_vless_port "${vless_port}"; then
     return 1
   fi
-  ufw --force enable >/dev/null 2>&1 || true
+  if ! ufw --force enable >/dev/null 2>&1; then
+    log_warn "ufw enable failed (non-fatal)."
+  fi
   log_info "Firewall enabled. Rules: ${SSH_PORT}/tcp (SSH), ${vless_port}/tcp (VLESS), ${HEALTH_PORT}/tcp (health)."
   echo ""
   ufw status | grep -E "${SSH_PORT}|${vless_port}|${HEALTH_PORT}" || ufw status
@@ -55,7 +57,9 @@ ufw_enable_with_rules() {
 # Disables ufw.
 #
 ufw_disable() {
-  ufw disable >/dev/null 2>&1 || true
+  if ! ufw disable >/dev/null 2>&1; then
+    log_warn "ufw disable failed (non-fatal)."
+  fi
   log_info "Firewall disabled."
 }
 
@@ -70,7 +74,7 @@ toggle_firewall() {
   fi
   require_reality_config
   local sni_port
-  IFS="|" read -r _ sni_port < <(get_sni_and_port)
+  sni_port="$(get_current_port)"
   if [[ ! "${sni_port}" =~ ^[0-9]+$ ]] || [[ "${sni_port}" -lt 1 ]] || [[ "${sni_port}" -gt 65535 ]]; then
     log_error "Invalid VLESS port from config: ${sni_port}"
     return 1
@@ -90,7 +94,9 @@ update_ufw_vless_port() {
   if ! is_ufw_active; then
     return 0
   fi
-  ufw --force delete allow "${old_port}/tcp" >/dev/null 2>&1 || true
+  if ! ufw --force delete allow "${old_port}/tcp" >/dev/null 2>&1; then
+    log_warn "ufw delete allow ${old_port}/tcp failed (non-fatal)."
+  fi
   if ! ufw allow "${new_port}/tcp" >/dev/null 2>&1; then
     log_error "Failed to allow new port ${new_port} in firewall."
     return 1

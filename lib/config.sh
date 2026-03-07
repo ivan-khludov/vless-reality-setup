@@ -10,16 +10,20 @@
 #   restart_xray_then_rewrite_links. Logs done message.
 #
 change_port() {
-  require_root
-  require_reality_config
+  run_protected true
 
   backup_config
 
   local current_port input_port new_port tmp_config
-  IFS="|" read -r _ current_port < <(get_sni_and_port)
+  current_port="$(get_current_port)"
 
   read -r -p "Listen port for VLESS (current: ${current_port}): " input_port || true
   new_port="$(parse_port "${current_port}" "${input_port}")"
+
+  if [[ "${new_port}" == "${current_port}" ]]; then
+    log_info "Port not changed."
+    return 0
+  fi
 
   tmp_config="$(mktemp)"
   jq --argjson port "${new_port}" '.inbounds[0].port = $port' "${XRAY_CONFIG_PATH}" > "${tmp_config}"
@@ -31,7 +35,7 @@ change_port() {
 
   restart_xray_then_rewrite_links
 
-  log_info "Done. Port updated to ${new_port}, Xray restarted, clients file updated."
+  log_info "Port changed: ${current_port} → ${new_port}"
 }
 
 #
@@ -43,13 +47,12 @@ change_port() {
 #   restart_xray_then_rewrite_links. Logs done message.
 #
 change_sni() {
-  require_root
-  require_reality_config
+  run_protected true
 
   backup_config
 
   local current_sni current_dest dest_port new_sni new_dest tmp_config
-  IFS="|" read -r current_sni _ < <(get_sni_and_port)
+  current_sni="$(get_current_sni)"
   current_dest="$(jq -r '.inbounds[0].streamSettings.realitySettings.dest' "${XRAY_CONFIG_PATH}")"
   if [[ "${current_dest}" == *:* ]]; then
     dest_port="${current_dest##*:}"
@@ -71,13 +74,17 @@ change_sni() {
 
   new_dest="${new_sni}:${dest_port}"
 
+  if [[ "${new_sni}" == "${current_sni}" ]]; then
+    log_info "SNI not changed."
+    return 0
+  fi
+
   tmp_config="$(mktemp)"
   jq --arg sni "${new_sni}" --arg dest "${new_dest}" \
-    '.inbounds[0].streamSettings.realitySettings.serverNames[0] = $sni | .inbounds[0].streamSettings.realitySettings.dest = $dest' \
-    "${XRAY_CONFIG_PATH}" > "${tmp_config}"
+    -f "${SCRIPT_ROOT}/lib/jq/change-sni.jq" "${XRAY_CONFIG_PATH}" > "${tmp_config}"
   safe_apply_config "${tmp_config}"
 
   restart_xray_then_rewrite_links
 
-  log_info "Done. SNI updated to ${new_sni}, Xray restarted, clients file updated."
+  log_info "SNI changed to ${new_sni}, Xray restarted, clients file updated."
 }

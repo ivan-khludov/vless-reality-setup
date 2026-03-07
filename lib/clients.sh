@@ -10,9 +10,6 @@
 #   builds and appends client link. Logs done message.
 #
 add_client() {
-  require_root
-  require_reality_config
-
   if [[ ! -f "${SERVER_PUBLIC_KEY_FILE}" ]]; then
     log_error "Public key not found: ${SERVER_PUBLIC_KEY_FILE}. Run install first."
     exit 1
@@ -33,10 +30,10 @@ add_client() {
 
   tmp_config="$(mktemp)"
   jq --arg uuid "${uuid}" --arg sid "${short_id}" --arg email "${client_name}" \
-    '(.inbounds[0].settings.clients + [{id: $uuid, flow: "xtls-rprx-vision", email: $email}]) as $new_clients | (.inbounds[0].streamSettings.realitySettings.shortIds + [$sid]) as $new_shortIds | .inbounds[0] = (.inbounds[0] | .settings.clients = $new_clients | .streamSettings.realitySettings.shortIds = $new_shortIds)' \
-    "${XRAY_CONFIG_PATH}" > "${tmp_config}"
+    -f "${SCRIPT_ROOT}/lib/jq/add-client.jq" "${XRAY_CONFIG_PATH}" > "${tmp_config}"
   safe_apply_config "${tmp_config}"
-  IFS="|" read -r sni port < <(get_sni_and_port)
+  sni="$(get_current_sni)"
+  port="$(get_current_port)"
   append_link "$uuid" "$short_id" "$public_key" "$port" "$sni" "$client_name"
   restart_xray
 
@@ -52,9 +49,6 @@ add_client() {
 #   cancelled confirmation returns without removing; otherwise logs done.
 #
 remove_client() {
-  require_root
-  require_reality_config
-
   show_clients
   echo ""
   read -r -p "Client number to remove (1-based): " n || true
@@ -80,13 +74,7 @@ remove_client() {
   local i=$(( n - 1 ))
   local tmp_config
   tmp_config="$(mktemp)"
-  jq --argjson i "$i" '
-    .inbounds[0] = (
-      .inbounds[0]
-      | .settings.clients = (.settings.clients | .[0:$i] + .[$i+1:])
-      | .streamSettings.realitySettings.shortIds = (.streamSettings.realitySettings.shortIds | .[0:$i] + .[$i+1:])
-    )
-  ' "${XRAY_CONFIG_PATH}" > "${tmp_config}"
+  jq --argjson i "$i" -f "${SCRIPT_ROOT}/lib/jq/remove-client.jq" "${XRAY_CONFIG_PATH}" > "${tmp_config}"
   safe_apply_config "${tmp_config}"
 
   restart_xray_then_rewrite_links
@@ -98,28 +86,8 @@ remove_client() {
 # Prints a numbered list of clients (uuid, shortId, and VLESS link) to stdout.
 #
 # @description
-#   Requires root and Reality config. Reads clients and shortIds from config; for each client outputs
-#   "N) uuid  shortId: sid" and on the next line the full vless://... link. No backup.
+#   Called via run_protected (root + Reality config). Uses emit_clients_list to stdout.
 #
 show_clients() {
-  require_root
-  require_reality_config
-
-  local count public_key server_ip sni port
-  count="$(get_client_count)"
-  IFS="|" read -r sni port < <(get_sni_and_port)
-  public_key="$(cat "${SERVER_PUBLIC_KEY_FILE}")"
-  server_ip="$(get_server_ip)"
-
-  echo "==== $(date -Iseconds) (${count} clients) ===="
-  echo ""
-
-  local i uuid sid client_name link
-  for (( i = 0; i < count; i++ )); do
-    IFS="|" read -r uuid sid client_name < <(get_client_at_index "$i")
-    link="$(format_link "$uuid" "$sid" "$public_key" "$server_ip" "$port" "$sni" "$client_name")"
-    echo "$(( i + 1 ))) ${uuid}  shortId: ${sid}"
-    print_green "${link}"
-    echo ""
-  done
+  emit_clients_list "stdout"
 }

@@ -129,47 +129,47 @@ run_menu() {
         ;;
       2)
         check_config
-        add_client
+        run_protected add_client
         prompt_to_continue
         ;;
       3)
         check_config
-        remove_client
+        run_protected remove_client
         prompt_to_continue
         ;;
       4)
         check_config
-        show_clients
+        run_protected show_clients
         prompt_to_continue
         ;;
       5)
         check_config
-        change_port
+        run_protected change_port
         prompt_to_continue
         ;;
       6)
         check_config
-        change_sni
+        run_protected change_sni
         prompt_to_continue
         ;;
       7)
         check_config
-        start_server
+        run_protected start_server
         prompt_to_continue
         ;;
       8)
         check_config
-        stop_server
+        run_protected stop_server
         prompt_to_continue
         ;;
       9)
         check_config
-        show_server_status
+        run_protected show_server_status
         prompt_to_continue
         ;;
       10)
         check_config
-        show_xray_logs
+        run_protected show_xray_logs
         prompt_to_continue
         ;;
       11)
