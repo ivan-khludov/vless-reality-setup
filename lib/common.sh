@@ -127,10 +127,11 @@ safe_apply_config() {
 # Prompts user to type expected word; returns 1 and logs cancel_message if input does not match.
 #
 # @description
-#   Reads one line, trims whitespace. Returns 0 if input equals expected_word (case-sensitive); otherwise log_warn with cancel_message and returns 1.
+#   Reads one line. On EOF/Ctrl+D logs "Input interrupted." and returns 1. Trims leading/trailing whitespace,
+#   lowercases input. Returns 0 if input equals "yes", "y", or expected_word (case-insensitive); otherwise log_warn with cancel_message and returns 1.
 #
 # @param $1 prompt - string shown before read (e.g. "Type YES to remove client 2: ")
-# @param $2 expected_word - exact string user must type (e.g. YES or DELETE)
+# @param $2 expected_word - word to accept (e.g. YES or DELETE); also accepts "yes" and "y"
 # @param $3 cancel_message - message logged when input does not match (e.g. "Removal cancelled.")
 # @returns 0 if input matches, 1 otherwise
 #
@@ -139,15 +140,27 @@ confirm_with() {
   local expected_word="$2"
   local cancel_message="$3"
   local input
-  read -r -p "${prompt}" input || true
-  input="${input//[[:cntrl:]]/}"
-  input="${input//[[:space:]]/}"
-  input="${input//[^[:alpha:]]/}"
-  if [[ "${input^^}" != "${expected_word^^}" ]]; then
-    log_warn "${cancel_message}"
+
+  read -r -p "${prompt}" input || {
+    log_warn "Input interrupted."
     return 1
-  fi
-  return 0
+  }
+
+  input="${input//[[:cntrl:]]/}"
+  input="${input#"${input%%[![:space:]]*}"}"
+  input="${input%"${input##*[![:space:]]}"}"
+  input="${input,,}"
+
+  local accepted=( "yes" "y" "${expected_word,,}" )
+  local word
+  for word in "${accepted[@]}"; do
+    if [[ "$input" == "$word" ]]; then
+      return 0
+    fi
+  done
+
+  log_warn "${cancel_message}"
+  return 1
 }
 
 #
@@ -336,6 +349,21 @@ require_reality_config() {
 }
 
 #
+# Runs a command only after require_root and require_reality_config pass.
+#
+# @description
+#   Use for menu entry points that need both root and an existing Reality config.
+#   Runs "$@" after the checks. Example: run_protected add_client
+#
+# @param $* command and arguments to run
+#
+run_protected() {
+  require_root
+  require_reality_config
+  "$@"
+}
+
+#
 # Returns server external IP on stdout; caches in SERVER_IP_FILE.
 #
 # @description
@@ -370,6 +398,31 @@ get_server_ip() {
 }
 
 #
+# Outputs current SNI from config on stdout.
+#
+# @description
+#   Requires config to exist (call require_config_or_exit or require_reality_config before use).
+#   Reads inbounds[0].streamSettings.realitySettings.serverNames[0] via jq.
+#
+# @returns SNI string on stdout
+#
+get_current_sni() {
+  jq -r '.inbounds[0].streamSettings.realitySettings.serverNames[0]' "${XRAY_CONFIG_PATH}"
+}
+
+#
+# Outputs current listen port from config on stdout.
+#
+# @description
+#   Requires config to exist. Reads inbounds[0].port via jq.
+#
+# @returns port number on stdout
+#
+get_current_port() {
+  jq -r '.inbounds[0].port' "${XRAY_CONFIG_PATH}"
+}
+
+#
 # Outputs current SNI and port from config as "sni|port".
 #
 # @description
@@ -379,10 +432,7 @@ get_server_ip() {
 #
 get_sni_and_port() {
   require_config_or_exit
-  local sni port
-  sni="$(jq -r '.inbounds[0].streamSettings.realitySettings.serverNames[0]' "${XRAY_CONFIG_PATH}")"
-  port="$(jq -r '.inbounds[0].port' "${XRAY_CONFIG_PATH}")"
-  echo "${sni}|${port}"
+  echo "$(get_current_sni)|$(get_current_port)"
 }
 
 #
@@ -452,13 +502,17 @@ get_client_at_index() {
 }
 
 #
-# Overwrites CLIENT_LINKS_FILE with links for all clients from current config.
+# Outputs client list: either to stdout (interactive format) or to a file (links only).
 #
 # @description
-#   Reads clients and shortIds from XRAY_CONFIG_PATH, verifies counts match, then writes a new CLIENT_LINKS_FILE
-#   with one vless link per client. Exits 1 on count mismatch.
+#   Verifies clients and shortIds count match, then gathers sni, port, public_key, server_ip.
+#   If $1 is "stdout" or empty: prints header and for each client "N) uuid shortId: sid" and link (with print_green).
+#   If $1 is a path: writes header and one link per line to that file. Exits 1 on count mismatch.
 #
-rewrite_links_file() {
+# @param $1 destination - "stdout" or path to file
+#
+emit_clients_list() {
+  local dest="${1:-stdout}"
   local clients_count shortids_count count public_key server_ip sni port
   clients_count="$(get_client_count)"
   shortids_count="$(jq -r '.inbounds[0].streamSettings.realitySettings.shortIds | length' "${XRAY_CONFIG_PATH}")"
@@ -467,21 +521,54 @@ rewrite_links_file() {
     exit 1
   fi
   count="${clients_count}"
-  IFS="|" read -r sni port < <(get_sni_and_port)
+  sni="$(get_current_sni)"
+  port="$(get_current_port)"
   public_key="$(cat "${SERVER_PUBLIC_KEY_FILE}")"
   server_ip="$(get_server_ip)"
 
-  mkdir -p "$(dirname "${CLIENT_LINKS_FILE}")"
-  {
-    echo "==== $(date -Iseconds) (${count} clients) ===="
-    local i uuid sid client_name
-    for (( i = 0; i < count; i++ )); do
-      IFS="|" read -r uuid sid client_name < <(get_client_at_index "$i")
-      format_link "$uuid" "$sid" "$public_key" "$server_ip" "$port" "$sni" "$client_name"
-    done
-  } > "${CLIENT_LINKS_FILE}"
+  local clients=() shortids=()
+  mapfile -t clients < <(jq -r --argjson count "$count" --arg default_name "${DEFAULT_CLIENT_NAME}" \
+    '.inbounds[0].settings.clients[0:$count] | .[] | [.id, (.email // $default_name)] | @tsv' \
+    "${XRAY_CONFIG_PATH}")
+  mapfile -t shortids < <(jq -r --argjson count "$count" \
+    '.inbounds[0].streamSettings.realitySettings.shortIds[0:$count] | .[]' \
+    "${XRAY_CONFIG_PATH}")
 
-  log_info "Clients file updated: ${CLIENT_LINKS_FILE} (${count} clients)."
+  local i uuid sid client_name link
+  if [[ "${dest}" == "stdout" ]]; then
+    echo "==== $(date -Iseconds) (${count} clients) ===="
+    echo ""
+    for (( i = 0; i < count; i++ )); do
+      IFS=$'\t' read -r uuid client_name <<< "${clients[i]}"
+      sid="${shortids[i]}"
+      link="$(format_link "$uuid" "$sid" "$public_key" "$server_ip" "$port" "$sni" "$client_name")"
+      echo "$(( i + 1 ))) ${uuid}  shortId: ${sid}"
+      print_green "${link}"
+      echo ""
+    done
+  else
+    mkdir -p "$(dirname "${dest}")"
+    {
+      echo "==== $(date -Iseconds) (${count} clients) ===="
+      for (( i = 0; i < count; i++ )); do
+        IFS=$'\t' read -r uuid client_name <<< "${clients[i]}"
+        sid="${shortids[i]}"
+        format_link "$uuid" "$sid" "$public_key" "$server_ip" "$port" "$sni" "$client_name"
+      done
+    } > "${dest}"
+  fi
+}
+
+#
+# Overwrites CLIENT_LINKS_FILE with links for all clients from current config.
+#
+# @description
+#   Reads clients and shortIds from XRAY_CONFIG_PATH, verifies counts match, then writes a new CLIENT_LINKS_FILE
+#   with one vless link per client. Exits 1 on count mismatch.
+#
+rewrite_links_file() {
+  emit_clients_list "${CLIENT_LINKS_FILE}"
+  log_info "Clients file updated: ${CLIENT_LINKS_FILE} ($(get_client_count) clients)."
 }
 
 #
@@ -492,8 +579,12 @@ rewrite_links_file() {
 #
 restart_xray() {
   log_info "Restarting and enabling Xray service..."
-  systemctl daemon-reload || true
-  systemctl enable xray >/dev/null 2>&1 || true
+  if ! systemctl daemon-reload 2>/dev/null; then
+    log_warn "systemctl daemon-reload failed (non-fatal)."
+  fi
+  if ! systemctl enable xray >/dev/null 2>&1; then
+    log_warn "systemctl enable xray failed (non-fatal)."
+  fi
   systemctl restart xray
 
   sleep 1
