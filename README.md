@@ -96,7 +96,7 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 | Path                                        | Description                                                                                                   |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `/usr/local/etc/xray/config.json`           | Xray config                                                                                                   |
-| `http://<server>:8080/health`               | Health endpoint (installed at Install); returns 200 + `{"status":"OK"}` when Xray is running, 503 when not, 404 for other paths |
+| `http://<server>:8080/health`               | Health endpoint (installed at Install). **200** = all checks passed (body: `status`, `checked_at`). **503** = one or more problems (body: `problems[]`, `checked_at`). **404** = path not `/health`. See “Health endpoint” below for problem codes. |
 | `files/backups/config.json.bak.<timestamp>` | Timestamped config backups (created before each config change)                                                |
 | `files/vless-reality-clients.txt`           | Client VLESS links (`files/` is gitignored)                                                                   |
 | `files/.vless-reality-public-key`           | Server Reality public key; used when adding clients                                                           |
@@ -107,6 +107,6 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 - **Xray** runs as the unprivileged user `nobody` with minimal capabilities (`CAP_NET_BIND_SERVICE` only). A hardened systemd unit is applied at install time: strict sandboxing (`ProtectSystem`, `ProtectHome`, `PrivateTmp`, etc.), no write access outside the service runtime, and config directory read-only.
 - **Restart policy:** `Restart=on-failure` with a short delay and a start limit so the service recovers from crashes without looping indefinitely.
 - Logs go to the system journal (`journalctl -u xray -f`); see menu option 10.
-- **Health endpoint:** A lightweight HTTP endpoint runs on port 8080 (socat + shell script) for monitoring: `GET /health` returns 200 and `{"status":"OK"}` when Xray is running, 503 and `{"status":"error","problems":["xray not running"]}` when it is not, and 404 for other paths. Logs: `journalctl -u vless-health`.
+- **Health endpoint:** A lightweight HTTP endpoint runs on port 8080 (socat + shell script) for monitoring. **GET /health** runs several checks (Xray binary, config file, Reality config, systemd status, process, port listening, `xray -test`). **200** = all OK; response includes `status` and `checked_at` (ISO timestamp). **503** = one or more problems; response includes `problems` (array of codes below) and `checked_at`. **404** = path is not `/health`. Problem codes: `xray_binary_missing`, `config_missing`, `invalid_config`, `xray_not_running`, `xray_process_dead`, `port_not_listening`, `config_test_failed`, `config_test_timeout`. Logs: `journalctl -u vless-health`.
 
 Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
