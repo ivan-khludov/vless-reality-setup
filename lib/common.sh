@@ -11,6 +11,7 @@ readonly XRAY_CONFIG_DIR="/usr/local/etc/xray"
 readonly DEFAULT_PORT=443
 readonly DEFAULT_SNI="www.cloudflare.com"
 readonly DEFAULT_CLIENT_NAME="auto-vless-reality"
+readonly MAX_BACKUPS=20
 
 # Script root: parent of lib/ (this file lives in lib/)
 _lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -195,7 +196,7 @@ list_backups_sorted_newest_first() {
 #
 # @description
 #   Copies XRAY_CONFIG_PATH to BACKUPS_DIR with name config.json.bak.<unix_timestamp>.
-#   Logs the backup path via log_info. After creating the backup, keeps only the 20 most
+#   Logs the backup path via log_info. After creating the backup, keeps only the MAX_BACKUPS most
 #   recent backups and deletes older ones.
 #   Call before any config change (add/remove client, update port/sni).
 #
@@ -206,13 +207,12 @@ backup_config() {
   log_info "Config backed up to ${backup_path}"
 
   local sorted=()
-  local max_backups=20
   local count i
 
   mapfile -t sorted < <(list_backups_sorted_newest_first)
   count=${#sorted[@]}
-  if (( count > max_backups )); then
-    for (( i = max_backups; i < count; i++ )); do
+  if (( count > MAX_BACKUPS )); then
+    for (( i = MAX_BACKUPS; i < count; i++ )); do
       rm -f "${sorted[i]}"
     done
   fi
