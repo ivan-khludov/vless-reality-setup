@@ -14,7 +14,7 @@ change_port() {
 
   backup_config
 
-  local current_port input_port new_port tmp_config
+  local current_port input_port new_port
   current_port="$(get_current_port)"
 
   read -r -p "Listen port for VLESS (current: ${current_port}): " input_port || true
@@ -25,9 +25,9 @@ change_port() {
     return 0
   fi
 
-  tmp_config="$(mktemp)"
-  jq --argjson port "${new_port}" '.inbounds[0].port = $port' "${XRAY_CONFIG_PATH}" > "${tmp_config}"
-  safe_apply_config "${tmp_config}"
+  apply_jq_config_update \
+    --argjson port "${new_port}" \
+    '.inbounds[0].port = $port'
 
   update_ufw_vless_port "${current_port}" "${new_port}"
 
@@ -49,7 +49,7 @@ change_sni() {
 
   backup_config
 
-  local current_sni current_dest dest_port new_sni new_dest tmp_config
+  local current_sni current_dest dest_port new_sni new_dest
   current_sni="$(get_current_sni)"
   current_dest="$(jq -r '.inbounds[0].streamSettings.realitySettings.dest' "${XRAY_CONFIG_PATH}")"
   if [[ "${current_dest}" == *:* ]]; then
@@ -77,10 +77,10 @@ change_sni() {
     return 0
   fi
 
-  tmp_config="$(mktemp)"
-  jq --arg sni "${new_sni}" --arg dest "${new_dest}" \
-    -f "${SCRIPT_ROOT}/lib/jq/change-sni.jq" "${XRAY_CONFIG_PATH}" > "${tmp_config}"
-  safe_apply_config "${tmp_config}"
+  apply_jq_config_update \
+    --arg sni "${new_sni}" \
+    --arg dest "${new_dest}" \
+    -f "${SCRIPT_ROOT}/lib/jq/change-sni.jq"
 
   restart_xray_then_rewrite_links
 
