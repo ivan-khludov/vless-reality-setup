@@ -75,6 +75,67 @@ detect_ubuntu() {
 }
 
 #
+# Configures TCP congestion control to BBR + fq if available.
+#
+# @description
+#   Tries to load tcp_bbr module, switches net.ipv4.tcp_congestion_control=bbr, and sets
+#   net.core.default_qdisc=fq. Writes a persistent sysctl snippet so settings survive reboot.
+#   Logs warnings and returns without failing install if BBR is not available or sysctl writes fail.
+#
+configure_tcp_bbr() {
+  log_info "Configuring TCP congestion control (BBR)..."
+
+  local available
+  available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
+
+  if [[ "${available}" != *"bbr"* ]]; then
+    if modprobe tcp_bbr 2>/dev/null; then
+      available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
+    else
+      log_warn "tcp_bbr module not available; keeping existing TCP congestion control."
+      return 0
+    fi
+  fi
+
+  if [[ "${available}" != *"bbr"* ]]; then
+    log_warn "BBR is not listed in net.ipv4.tcp_available_congestion_control; skipping BBR configuration."
+    return 0
+  fi
+
+  if ! sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1; then
+    log_warn "Failed to set net.ipv4.tcp_congestion_control=bbr; leaving current setting."
+    return 0
+  fi
+
+  if ! sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1; then
+    log_warn "Failed to set net.core.default_qdisc=fq; continuing without fq."
+  fi
+
+  local sysctl_conf
+  if [[ -d /etc/sysctl.d ]]; then
+    sysctl_conf="/etc/sysctl.d/99-vless-reality-bbr.conf"
+  else
+    sysctl_conf="/etc/sysctl.conf"
+  fi
+
+  if ! touch "${sysctl_conf}" 2>/dev/null; then
+    log_warn "Cannot write ${sysctl_conf}; BBR settings will not persist after reboot."
+    return 0
+  fi
+
+  if ! grep -q 'net.ipv4.tcp_congestion_control' "${sysctl_conf}" 2>/dev/null; then
+    echo "net.ipv4.tcp_congestion_control=bbr" >> "${sysctl_conf}"
+  fi
+  if ! grep -q 'net.core.default_qdisc' "${sysctl_conf}" 2>/dev/null; then
+    echo "net.core.default_qdisc=fq" >> "${sysctl_conf}"
+  fi
+
+  if ! sysctl -p "${sysctl_conf}" >/dev/null 2>&1; then
+    log_warn "Failed to reload sysctl settings from ${sysctl_conf}; current session already uses BBR."
+  fi
+}
+
+#
 # Installs apt dependencies: curl, openssl, uuid-runtime, jq, ufw, socat.
 #
 # @description
@@ -258,6 +319,8 @@ HEALTH_UNIT_EOF
 install_server() {
   require_root
   detect_ubuntu
+
+  configure_tcp_bbr
 
   local input_sni input_port sni port dest_for_config
   read -r -p "SNI (default: ${DEFAULT_SNI}): " input_sni || true
