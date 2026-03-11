@@ -125,6 +125,28 @@ safe_apply_config() {
 }
 
 #
+# Runs jq against XRAY_CONFIG_PATH into a temp file and applies it safely.
+#
+# @description
+#   Creates a temporary config file, runs jq with the given arguments against XRAY_CONFIG_PATH,
+#   writes output to the temp file, then calls safe_apply_config. On jq failure logs an error,
+#   removes the temp file, and exits 1.
+# @param $@ jq arguments and filters (excluding input file)
+#
+apply_jq_config_update() {
+  local tmp_config
+  tmp_config="$(mktemp)" || { log_error "mktemp failed."; exit 1; }
+
+  if ! jq "$@" "${XRAY_CONFIG_PATH}" > "${tmp_config}"; then
+    log_error "Failed to update config (jq error)."
+    rm -f "${tmp_config}"
+    exit 1
+  fi
+
+  safe_apply_config "${tmp_config}"
+}
+
+#
 # Prompts user to type expected word; returns 1 and logs cancel_message if input does not match.
 #
 # @description
@@ -499,6 +521,30 @@ get_client_at_index() {
   client_name="$(jq -r --argjson i "$i" '.inbounds[0].settings.clients[$i].email // empty' "${XRAY_CONFIG_PATH}")"
   client_name="${client_name:-$DEFAULT_CLIENT_NAME}"
   echo "${uuid}|${sid}|${client_name}"
+}
+
+#
+# Returns 0 if a client with the given name already exists, 1 otherwise.
+#
+# @description
+#   Compares the provided client_name against emails of all existing clients (falling back to DEFAULT_CLIENT_NAME
+#   when email is empty, same as get_client_at_index). Intended for interactive flows to prevent duplicate names.
+# @param $1 client_name to check
+#
+client_name_exists() {
+  local name="$1"
+  local count i entry existing_name
+
+  count="$(get_client_count)"
+  for (( i = 0; i < count; i++ )); do
+    entry="$(get_client_at_index "$i")"
+    IFS='|' read -r _ _ existing_name <<< "${entry}"
+    if [[ "${existing_name}" == "${name}" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 #

@@ -17,21 +17,31 @@ add_client() {
 
   backup_config
 
-  local public_key uuid short_id client_name tmp_config sni port
+  local public_key uuid short_id client_name sni port
   public_key="$(cat "${SERVER_PUBLIC_KEY_FILE}")"
   uuid="$(uuidgen)"
   short_id="$(openssl rand -hex 4)"
 
-  read -r -p "Client name (default: ${DEFAULT_CLIENT_NAME}): " client_name || true
-  client_name="${client_name:-$DEFAULT_CLIENT_NAME}"
+  while :; do
+    read -r -p "Client name (default: ${DEFAULT_CLIENT_NAME}): " client_name || true
+    client_name="${client_name:-$DEFAULT_CLIENT_NAME}"
+
+    if client_name_exists "${client_name}"; then
+      log_warn "Client name \"${client_name}\" already exists. Please choose another name."
+      continue
+    fi
+
+    break
+  done
 
   log_info "New UUID: ${uuid}"
   log_info "New Short ID: ${short_id}"
 
-  tmp_config="$(mktemp)"
-  jq --arg uuid "${uuid}" --arg sid "${short_id}" --arg email "${client_name}" \
-    -f "${SCRIPT_ROOT}/lib/jq/add-client.jq" "${XRAY_CONFIG_PATH}" > "${tmp_config}"
-  safe_apply_config "${tmp_config}"
+  apply_jq_config_update \
+    --arg uuid "${uuid}" \
+    --arg sid "${short_id}" \
+    --arg email "${client_name}" \
+    -f "${SCRIPT_ROOT}/lib/jq/add-client.jq"
   sni="$(get_current_sni)"
   port="$(get_current_port)"
   append_link "$uuid" "$short_id" "$public_key" "$port" "$sni" "$client_name"
@@ -72,10 +82,9 @@ remove_client() {
   backup_config
 
   local i=$(( n - 1 ))
-  local tmp_config
-  tmp_config="$(mktemp)"
-  jq --argjson i "$i" -f "${SCRIPT_ROOT}/lib/jq/remove-client.jq" "${XRAY_CONFIG_PATH}" > "${tmp_config}"
-  safe_apply_config "${tmp_config}"
+  apply_jq_config_update \
+    --argjson i "$i" \
+    -f "${SCRIPT_ROOT}/lib/jq/remove-client.jq"
 
   restart_xray_then_rewrite_links
 
