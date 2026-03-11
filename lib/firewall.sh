@@ -36,7 +36,7 @@ ufw_allow_ssh_and_vless_port() {
 }
 
 #
-# Enables ufw with SSH and VLESS port allowed. Returns 1 if allow fails.
+# Enables ufw with SSH, VLESS port, and health port allowed. Returns 1 if allow fails.
 #
 # @param $1 vless_port - VLESS listen port from config
 #
@@ -50,11 +50,11 @@ ufw_enable_with_rules() {
   fi
   log_info "Firewall enabled. Rules: ${SSH_PORT}/tcp (SSH), ${vless_port}/tcp (VLESS), ${HEALTH_PORT}/tcp (health)."
   echo ""
-  ufw status | grep -E "${SSH_PORT}|${vless_port}|${HEALTH_PORT}" || ufw status
+  _ufw_print_status_for_ports "${SSH_PORT}|${vless_port}|${HEALTH_PORT}"
 }
 
 #
-# Disables ufw.
+# Disables ufw (non-fatal on ufw errors).
 #
 ufw_disable() {
   if ! ufw disable >/dev/null 2>&1; then
@@ -64,8 +64,18 @@ ufw_disable() {
 }
 
 #
-# Toggle firewall: turn off if active, turn on with SSH + current VLESS port if inactive.
-# For "turn on" requires Reality config (to read port).
+# Prints ufw status filtered by the given grep pattern for ports; falls back to full status if no matches.
+#
+# @param $1 pattern - grep -E pattern for ufw status (ports or other fields)
+#
+_ufw_print_status_for_ports() {
+  local pattern="$1"
+  ufw status | grep -E "${pattern}" || ufw status
+}
+
+#
+# Toggle firewall: turn off if active, turn on with SSH + current VLESS port and health port if inactive.
+# For \"turn on\" requires Reality config (to read port).
 #
 toggle_firewall() {
   if is_ufw_active; then
@@ -83,17 +93,15 @@ toggle_firewall() {
 }
 
 #
-# Updates ufw: remove rule for old VLESS port, add rule for new port. No-op if ufw not active.
+# Internal: updates ufw rule for VLESS port when ufw is active.
 #
 # @param $1 old_port - previous VLESS port
 # @param $2 new_port - new VLESS port
 #
-update_ufw_vless_port() {
+_ufw_update_vless_port_rule() {
   local old_port="$1"
   local new_port="$2"
-  if ! is_ufw_active; then
-    return 0
-  fi
+
   if ! ufw --force delete allow "${old_port}/tcp" >/dev/null 2>&1; then
     log_warn "ufw delete allow ${old_port}/tcp failed (non-fatal)."
   fi
@@ -103,5 +111,22 @@ update_ufw_vless_port() {
   fi
   log_info "Firewall updated: ${old_port}/tcp → ${new_port}/tcp"
   echo ""
-  ufw status | grep -E "${SSH_PORT}|${new_port}" || ufw status
+  _ufw_print_status_for_ports "${SSH_PORT}|${new_port}|${HEALTH_PORT}"
+}
+
+#
+# Updates ufw: remove rule for old VLESS port, add rule for new port. No-op if ufw not active.
+#
+# @param $1 old_port - previous VLESS port
+# @param $2 new_port - new VLESS port
+#
+update_ufw_vless_port() {
+  local old_port="$1"
+  local new_port="$2"
+
+  if ! is_ufw_active; then
+    return 0
+  fi
+
+  _ufw_update_vless_port_rule "${old_port}" "${new_port}"
 }

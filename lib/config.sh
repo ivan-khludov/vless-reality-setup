@@ -29,9 +29,7 @@ change_port() {
   jq --argjson port "${new_port}" '.inbounds[0].port = $port' "${XRAY_CONFIG_PATH}" > "${tmp_config}"
   safe_apply_config "${tmp_config}"
 
-  if is_ufw_active; then
-    update_ufw_vless_port "${current_port}" "${new_port}"
-  fi
+  update_ufw_vless_port "${current_port}" "${new_port}"
 
   restart_xray_then_rewrite_links
 
