@@ -155,8 +155,8 @@ install_dependencies() {
 #
 install_xray() {
   local current_version=""
-  if command -v xray >/dev/null 2>&1 && [[ -x /usr/local/bin/xray ]]; then
-    current_version="$(/usr/local/bin/xray -version 2>/dev/null | awk 'NR==1 {print $2}')" || true
+  if command -v xray >/dev/null 2>&1 && [[ -x "${XRAY_BINARY}" ]]; then
+    current_version="$("${XRAY_BINARY}" -version 2>/dev/null | awk 'NR==1 {print $2}')" || true
     current_version="v${current_version#v}"
     if [[ -n "${current_version}" && "${current_version}" == "${XRAY_VERSION}" ]]; then
       log_info "Xray ${XRAY_VERSION} is already installed, skipping installation."
@@ -184,7 +184,7 @@ generate_keys() {
   log_info "Generating UUID, X25519 keys and short id..."
   local uuid private public short key_output
   uuid="$(uuidgen)"
-  key_output="$(cd /tmp && /usr/local/bin/xray x25519 2>&1)" || true
+  key_output="$(cd /tmp && "${XRAY_BINARY}" x25519 2>&1)" || true
   private="$(echo "${key_output}" | grep -i 'PrivateKey' | sed -n 's/.*:[[:space:]]*//p' | tr -d '\r')" || true
   public="$(echo "${key_output}" | grep -i 'Password' | sed -n 's/.*:[[:space:]]*//p' | tr -d '\r')" || true
   if [[ -z "${private}" || -z "${public}" ]]; then

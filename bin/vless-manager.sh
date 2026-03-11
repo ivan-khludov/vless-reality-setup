@@ -27,10 +27,58 @@ source "${SCRIPT_ROOT}/lib/service.sh"
 source "${SCRIPT_ROOT}/lib/uninstall.sh"
 
 #
+# Menu dispatch table.
+#
+# @description
+#   To add a new option, add it to MENU with value:
+#     "action:needs_config:run_protected:label_no_config:label_with_config:label_condition_fn"
+#   where:
+#     - action: function name to call
+#     - needs_config: "true"/"false" (whether XRAY_CONFIG_PATH must exist)
+#     - run_protected: "true"/"false" (whether to call via run_protected)
+#     - label_no_config: label to show when condition_fn is false or empty
+#     - label_with_config: optional alternate label when condition_fn returns success
+#     - label_condition_fn: optional function name that decides which label to use
+#
+declare -rA MENU=(
+  ["1"]="install_or_uninstall:false:false:1) Install:1) Uninstall:config_exists"
+  ["2"]="add_client:true:true:2) Add client:::"
+  ["3"]="remove_client:true:true:3) Remove client:::"
+  ["4"]="show_clients:true:true:4) Show clients:::"
+  ["5"]="change_port:true:true:5) Change port:::"
+  ["6"]="change_sni:true:true:6) Change SNI:::"
+  ["7"]="start_server:true:true:7) Start server:::"
+  ["8"]="stop_server:true:true:8) Stop server:::"
+  ["9"]="show_server_status:true:true:9) Server status:::"
+  ["10"]="show_xray_logs:true:true:10) Xray logs:::"
+  ["11"]="restore_from_backup:false:false:11) Restore clients from backup:::"
+  ["12"]="toggle_firewall:false:false:12) Turn on Firewall:12) Turn off Firewall:is_ufw_active"
+)
+
+menu_label() {
+  local i=$1
+  local action needs_config run_protected label_no_cfg label_cfg cond_fn
+
+  IFS=':' read -r action needs_config run_protected label_no_cfg label_cfg cond_fn <<<"${MENU[$i]}"
+
+  if [[ -n "${cond_fn}" ]] && "${cond_fn}"; then
+    if [[ -n "${label_cfg}" ]]; then
+      echo "${label_cfg}"
+    else
+      echo "${label_no_cfg}"
+    fi
+  else
+    echo "${label_no_cfg}"
+  fi
+}
+
+#
 # Prints the main menu banner and option list to stdout.
 #
 # @description
-#   Outputs "VLESS Reality Server Manager" header. Before install (no config): only 1) Install and 0) Exit. After install: options 1-12 and 0; option 1 label is Uninstall, option 12 label depends on firewall status (Turn on / Turn off Firewall).
+#   Outputs "VLESS Reality Server Manager" header. Before install (no config): only 1) Install and 0) Exit.
+#   After install: options 1-12 and 0; option 1 label is Uninstall, option 12 label depends on firewall status
+#   (Turn on / Turn off Firewall). Labels are driven by the MENU table.
 #
 print_menu() {
   echo "==============================="
@@ -38,24 +86,12 @@ print_menu() {
   echo "==============================="
   echo ""
   if config_exists; then
-    echo "1) Uninstall"
-    echo "2) Add client"
-    echo "3) Remove client"
-    echo "4) Show clients"
-    echo "5) Change port"
-    echo "6) Change SNI"
-    echo "7) Start server"
-    echo "8) Stop server"
-    echo "9) Server status"
-    echo "10) Xray logs"
-    echo "11) Restore clients from backup"
-    if is_ufw_active; then
-      echo "12) Turn off Firewall"
-    else
-      echo "12) Turn on Firewall"
-    fi
+    local i
+    for i in $(seq 1 "${#MENU[@]}"); do
+      echo "$(menu_label "${i}")"
+    done
   else
-    echo "1) Install"
+    echo "$(menu_label 1)"
   fi
   echo "0) Exit"
   echo ""
@@ -75,10 +111,10 @@ prompt_to_continue() {
 }
 
 #
-# Returns 0 if XRAY_CONFIG_PATH exists; otherwise logs warning, waits for Enter, and continues the enclosing loop.
+# Returns 0 if XRAY_CONFIG_PATH exists; otherwise logs warning and waits for Enter.
 #
 # @description
-#   Must be called from within run_menu's while loop. If config is missing, logs, waits for Enter, then continue (next menu iteration).
+#   Use from within run_menu's while loop. If config is missing, logs and waits for Enter, then return 1 so the caller can continue the loop.
 #
 check_config() {
   if config_exists; then
@@ -86,11 +122,58 @@ check_config() {
   fi
   log_warn "No config. Install first."
   prompt_to_continue
-  continue
+  return 1
+}
+
+install_or_uninstall() {
+  if config_exists; then
+    uninstall_server
+  else
+    install_server
+  fi
+}
+
+run_action() {
+  local opt=$1
+  local action needs_config run_protected
+
+  IFS=':' read -r action needs_config run_protected _ _ _ <<<"${MENU[$opt]}"
+
+  if [[ "${needs_config}" == "true" ]]; then
+    check_config || return
+  fi
+
+  if [[ "${run_protected}" == "true" ]]; then
+    run_protected "${action}"
+  else
+    "${action}"
+  fi
+
+  prompt_to_continue
+}
+
+get_max_option() {
+  if config_exists; then
+    echo "${#MENU[@]}"
+  else
+    echo 1
+  fi
+}
+
+validate_option() {
+  local option=$1
+  local max_option=$2
+
+  if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt "${max_option}" ]]; then
+    log_warn "Invalid option. Enter 0-${max_option}."
+    return 1
+  fi
+
+  return 0
 }
 
 #
-# Main loop: displays menu, reads option, dispatches to install/uninstall/add/remove/show/port/sni/firewall or exit.
+# Main loop: displays menu, reads option, dispatches via MENU.
 #
 # @description
 #   Loops until user selects 0. Before install only 0 and 1 are accepted; after install options 0-12. On invalid input logs warning and re-prompts.
@@ -102,85 +185,21 @@ run_menu() {
     print_menu
     read -r -p "Select option: " option || true
     option="${option//[[:space:]]/}"
-    local max_option=12
-    config_exists || max_option=1
-    if [[ ! "${option}" =~ ^[0-9]+$ ]] || [[ "${option}" -lt 0 ]] || [[ "${option}" -gt "${max_option}" ]]; then
-      if [[ "${max_option}" -eq 1 ]]; then
-        log_warn "Invalid option. Enter 0 or 1."
-      else
-        log_warn "Invalid option. Enter a number 0-12."
-      fi
+
+    local max_option
+    max_option="$(get_max_option)"
+
+    if ! validate_option "${option}" "${max_option}"; then
       prompt_to_continue
       continue
     fi
 
-    case "${option}" in
-      0)
-        log_info "Bye."
-        exit 0
-        ;;
-      1)
-        if config_exists; then
-          uninstall_server
-        else
-          install_server
-        fi
-        prompt_to_continue
-        ;;
-      2)
-        check_config
-        run_protected add_client
-        prompt_to_continue
-        ;;
-      3)
-        check_config
-        run_protected remove_client
-        prompt_to_continue
-        ;;
-      4)
-        check_config
-        run_protected show_clients
-        prompt_to_continue
-        ;;
-      5)
-        check_config
-        run_protected change_port
-        prompt_to_continue
-        ;;
-      6)
-        check_config
-        run_protected change_sni
-        prompt_to_continue
-        ;;
-      7)
-        check_config
-        run_protected start_server
-        prompt_to_continue
-        ;;
-      8)
-        check_config
-        run_protected stop_server
-        prompt_to_continue
-        ;;
-      9)
-        check_config
-        run_protected show_server_status
-        prompt_to_continue
-        ;;
-      10)
-        check_config
-        run_protected show_xray_logs
-        prompt_to_continue
-        ;;
-      11)
-        restore_from_backup
-        prompt_to_continue
-        ;;
-      12)
-        toggle_firewall
-        prompt_to_continue
-        ;;
-    esac
+    if [[ "${option}" == "0" ]]; then
+      log_info "Bye."
+      exit 0
+    fi
+
+    run_action "${option}"
   done
 }
 
