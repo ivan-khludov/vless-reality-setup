@@ -82,6 +82,8 @@ After the first install, the script prints the initial VLESS link:
 
 ![First VLESS link output](assets/link_example.png)
 
+Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
+
 ## Backup
 
 Before every config change (add/remove client, change port or SNI), a backup of the current Xray config is created in `files/backups/` with a timestamped name:
@@ -142,5 +144,3 @@ If this project helps you, optional tips in **USDT (Tron / TRC-20)** are welcome
 `TNrPGfU3HqtfMPmmhdvrJsQng7Ck9fian4`
 
 Send **only** USDT over the **Tron network** to this address; using other chains can mean lost funds.
-
-Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
