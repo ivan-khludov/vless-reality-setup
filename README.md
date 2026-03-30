@@ -141,6 +141,12 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 
 If this project helps you, optional tips in **USDT (Tron / TRC-20)** are welcome:
 
-`TNrPGfU3HqtfMPmmhdvrJsQng7Ck9fian4`
+![USDT TRC-20 donation QR](assets/qr.png)
+
+Address (TRC-20 / Tron):
+
+```
+TNrPGfU3HqtfMPmmhdvrJsQng7Ck9fian4
+```
 
 Send **only** USDT over the **Tron network** to this address; using other chains can mean lost funds.
