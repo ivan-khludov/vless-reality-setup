@@ -4,6 +4,12 @@ This repository provides a simple script to deploy a VLESS server with REALITY t
 
 Installation and client management are performed entirely from the terminal in a single interactive script. No Docker containers, no web interfaces, no additional services are required.
 
+## Requirements
+
+- **OS:** Ubuntu (tested on 24.04). May work on other Debian-based systems.
+- **Root:** The manager must be run as root (or with `sudo`).
+- **Port:** Configurable at install (default 443); the chosen port must be free (no other service should listen on it).
+
 ## Quick start
 
 Install and run the manager:
@@ -24,37 +30,9 @@ After the first install, the script prints the initial VLESS link:
 
 Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
 
-## Requirements
+## After install
 
-- **OS:** Ubuntu (tested on 24.04). May work on other Debian-based systems.
-- **Root:** The manager must be run as root (or with `sudo`).
-- **Port:** Configurable at install (default 443); the chosen port must be free (no other service should listen on it).
-
-## Running the manager
-
-Clone the repository (e.g. from your home directory), then run the manager from the repo directory:
-
-```bash
-git clone https://github.com/ivan-khludov/vless-reality-setup.git
-sudo ./vless-reality-setup/bin/vless-manager.sh
-```
-
-You’ll see the main menu. **Before the first install** only **1) Install** and **0) Exit** are shown. **After install**, the full menu appears.
-
-Before install:
-
-```
-===============================
-  VLESS Reality Server Manager
-===============================
-
-1) Install
-0) Exit
-
-Select option:
-```
-
-After install:
+After you complete **1) Install**, the manager shows the full menu (this is what you will see on the next run, and immediately after installation finishes):
 
 ```
 ===============================
@@ -83,7 +61,7 @@ Select option:
 
 ### Manager menu reference
 
-Options 2–13 are only visible after the server is installed. Descriptions:
+The items below describe the menu options shown in the **After install** screen. Options **2–13** are only visible after the server is installed.
 
 - **1) Install / Uninstall** — Label shows **Install** when the server is not installed, **Uninstall** when config exists. **Install:** first-time setup: installs dependencies and Xray, generates keys, creates VLESS Reality config, starts the service, sets up a health endpoint on port 8080 (socat + script), and prints the first client link and the health URL. You’ll be prompted for SNI (default `www.cloudflare.com`), listen port (default 443), and client name. **Uninstall:** you must type **DELETE** to confirm. Then it stops and disables Xray and the health endpoint, disables the firewall (ufw) if it was on, and removes the systemd units, Xray binary, config directory, health script, and socat. You are asked whether to remove client data in `files/` (keys, backups, client links); default is yes. You are then asked whether to remove ufw (firewall) if it was installed by the script; default is no. curl, openssl, jq, and uuid-runtime are not removed (common system tools).
 - **2) Add client** — Adds a new client (new UUID and short id), restarts Xray, and appends the new link to the clients file. Requires an existing install.
