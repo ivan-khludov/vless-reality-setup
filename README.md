@@ -10,31 +10,29 @@ Installation and client management are performed entirely from the terminal in a
 - **Root:** The manager must be run as root (or with `sudo`).
 - **Port:** Configurable at install (default 443); the chosen port must be free (no other service should listen on it).
 
-## Running the manager
+## Quick start
 
-Clone the repository (e.g. from your home directory), then run the manager from the repo directory:
+Install and run the manager:
 
 ```bash
 git clone https://github.com/ivan-khludov/vless-reality-setup.git
-sudo ./vless-reality-setup/bin/vless-manager.sh
+cd vless-reality-setup
+sudo ./bin/vless-manager.sh
 ```
 
-You’ll see the main menu. **Before the first install** only **1) Install** and **0) Exit** are shown. **After install**, the full menu appears.
+Then choose **1) Install** and follow prompts (SNI, port, first client name).
 
-Before install:
+### Example install output
 
-```
-===============================
-  VLESS Reality Server Manager
-===============================
+After the first install, the script prints the initial VLESS link:
 
-1) Install
-0) Exit
+![First VLESS link output](assets/link_example.png)
 
-Select option:
-```
+Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
 
-After install:
+## After install
+
+After you complete **1) Install**, the manager shows the full menu (this is what you will see on the next run, and immediately after installation finishes):
 
 ```
 ===============================
@@ -53,12 +51,17 @@ After install:
 10) Xray logs
 11) Restore clients from backup
 12) Turn on Firewall / Turn off Firewall
+13) Manage extra Firewall rules
 0) Exit
 
 Select option:
 ```
 
-Options 2–12 are only visible after the server is installed. Descriptions:
+## Advanced
+
+### Manager menu reference
+
+The items below describe the menu options shown in the **After install** screen. Options **2–13** are only visible after the server is installed.
 
 - **1) Install / Uninstall** — Label shows **Install** when the server is not installed, **Uninstall** when config exists. **Install:** first-time setup: installs dependencies and Xray, generates keys, creates VLESS Reality config, starts the service, sets up a health endpoint on port 8080 (socat + script), and prints the first client link and the health URL. You’ll be prompted for SNI (default `www.cloudflare.com`), listen port (default 443), and client name. **Uninstall:** you must type **DELETE** to confirm. Then it stops and disables Xray and the health endpoint, disables the firewall (ufw) if it was on, and removes the systemd units, Xray binary, config directory, health script, and socat. You are asked whether to remove client data in `files/` (keys, backups, client links); default is yes. You are then asked whether to remove ufw (firewall) if it was installed by the script; default is no. curl, openssl, jq, and uuid-runtime are not removed (common system tools).
 - **2) Add client** — Adds a new client (new UUID and short id), restarts Xray, and appends the new link to the clients file. Requires an existing install.
@@ -72,17 +75,10 @@ Options 2–12 are only visible after the server is installed. Descriptions:
 - **10) Xray logs** — Shows live logs (`journalctl -u xray -f`); press Ctrl+C to exit.
 - **11) Restore clients from backup** — Lists backups in `files/backups/` (newest first); choose by number, type **RESTORE** to confirm. Restores config, restarts Xray, and rewrites the client links file.
 - **12) Turn on Firewall / Turn off Firewall** — Label depends on whether ufw is active. Turn on: allows SSH (22/tcp), the current VLESS port, and the health port (8080/tcp), then enables ufw. Turn off: disables ufw. Firewall is not enabled at install time.
+- **13) Manage extra Firewall rules** — Manage optional extra public ufw rules (for example open `80/tcp` for a small website). Submenu supports list/add/remove. Rules are stored in `files/ufw-extra-rules.txt` (gitignored). If ufw is active, a rule is applied immediately after adding; if ufw is inactive, rules are applied automatically next time you enable the firewall. Format: `80/tcp` or `53/udp`. Reserved ports are rejected with an error: SSH (`22`), health (`8080`), and the current VLESS port from config.
 - **0) Exit** — Quit the manager.
 
 Dangerous actions (**Remove client** and **Uninstall server**) require explicit confirmation as noted above.
-
-### Example install output
-
-After the first install, the script prints the initial VLESS link:
-
-![First VLESS link output](assets/link_example.png)
-
-Use the links from `files/vless-reality-clients.txt` in a VLESS Reality–compatible client (e.g. v2rayN, Nekoray, Shadowrocket, Hiddify).
 
 ## Backup
 

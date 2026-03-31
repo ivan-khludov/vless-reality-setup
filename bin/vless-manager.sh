@@ -53,6 +53,7 @@ declare -rA MENU=(
   ["10"]="show_xray_logs:true:true:10) Xray logs:::"
   ["11"]="restore_from_backup:false:false:11) Restore clients from backup:::"
   ["12"]="toggle_firewall:false:false:12) Turn on Firewall:12) Turn off Firewall:is_ufw_active"
+  ["13"]="manage_extra_firewall_rules:true:true:13) Manage extra Firewall rules:::"
 )
 
 menu_label() {
@@ -149,7 +150,11 @@ run_action() {
     "${action}"
   fi
 
-  prompt_to_continue
+  # Some actions implement their own interactive loop and "back" navigation.
+  # For those, do not force an extra "Press Enter" pause after returning.
+  if [[ "${opt}" != "13" ]]; then
+    prompt_to_continue
+  fi
 }
 
 get_max_option() {
