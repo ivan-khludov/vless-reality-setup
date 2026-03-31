@@ -95,14 +95,14 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 
 ## Important paths
 
-| Path                                        | Description                                                                                                   |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `/usr/local/etc/xray/config.json`           | Xray config                                                                                                   |
+| Path                                        | Description                                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `/usr/local/etc/xray/config.json`           | Xray config                                                                                                              |
 | `http://<server>:8080/health`               | Health endpoint (installed at Install). Responses and `problems[]` codes are documented under **Health endpoint** below. |
-| `files/backups/config.json.bak.<timestamp>` | Timestamped config backups (created before each config change)                                                |
-| `files/vless-reality-clients.txt`           | Client VLESS links (`files/` is gitignored)                                                                   |
-| `files/.vless-reality-public-key`           | Server Reality public key; used when adding clients                                                           |
-| `files/server-ip`                           | Cached server IP for links; set at first run. Edit and re-run “Change port” or “Change SNI” to refresh links. |
+| `files/backups/config.json.bak.<timestamp>` | Timestamped config backups (created before each config change)                                                           |
+| `files/vless-reality-clients.txt`           | Client VLESS links (`files/` is gitignored)                                                                              |
+| `files/.vless-reality-public-key`           | Server Reality public key; used when adding clients                                                                      |
+| `files/server-ip`                           | Cached server IP for links; set at first run. Edit and re-run “Change port” or “Change SNI” to refresh links.            |
 
 ## Security and reliability
 
@@ -115,25 +115,25 @@ You can restore from the menu (option 11) or manually by copying a backup over `
 
   **HTTP responses**
 
-  | Status | Meaning |
-  | ------ | ------- |
-  | **200** | All checks passed. JSON: `status` (`OK`), `checked_at` (ISO-8601). |
+  | Status  | Meaning                                                                                         |
+  | ------- | ----------------------------------------------------------------------------------------------- |
+  | **200** | All checks passed. JSON: `status` (`OK`), `checked_at` (ISO-8601).                              |
   | **503** | At least one check failed. JSON: `status` (`error`), `problems` (array of codes), `checked_at`. |
-  | **404** | URL path is not `/health`. JSON includes `problems`: `["not_found"]`. |
-  | **400** | Bad or empty request line. JSON includes `problems`: `["bad_request"]`. |
+  | **404** | URL path is not `/health`. JSON includes `problems`: `["not_found"]`.                           |
+  | **400** | Bad or empty request line. JSON includes `problems`: `["bad_request"]`.                         |
 
   **`problems` codes on 503**
 
-  | Code | Meaning |
-  | ---- | ------- |
-  | `xray_binary_missing` | `/usr/local/bin/xray` is missing or not executable. |
-  | `config_missing` | `/usr/local/etc/xray/config.json` is missing or empty. |
-  | `invalid_config` | Config does not mark the first inbound as Reality (script uses `jq` on `inbounds[0]`). |
-  | `xray_not_running` | `systemctl is-active xray` is not active. |
-  | `xray_process_dead` | No running process with name `xray` (`pgrep -x xray`). |
-  | `port_not_listening` | Nothing accepted a TCP connection to `127.0.0.1:<vless_port>` within 1 second. |
-  | `config_test_timeout` | `xray -test` exited due to timeout (15s). |
-  | `config_test_failed` | `xray -test` returned a non-zero exit code (other than timeout). |
+  | Code                  | Meaning                                                                                |
+  | --------------------- | -------------------------------------------------------------------------------------- |
+  | `xray_binary_missing` | `/usr/local/bin/xray` is missing or not executable.                                    |
+  | `config_missing`      | `/usr/local/etc/xray/config.json` is missing or empty.                                 |
+  | `invalid_config`      | Config does not mark the first inbound as Reality (script uses `jq` on `inbounds[0]`). |
+  | `xray_not_running`    | `systemctl is-active xray` is not active.                                              |
+  | `xray_process_dead`   | No running process with name `xray` (`pgrep -x xray`).                                 |
+  | `port_not_listening`  | Nothing accepted a TCP connection to `127.0.0.1:<vless_port>` within 1 second.         |
+  | `config_test_timeout` | `xray -test` exited due to timeout (15s).                                              |
+  | `config_test_failed`  | `xray -test` returned a non-zero exit code (other than timeout).                       |
 
   Several codes can appear at once if multiple checks fail.
 
@@ -150,3 +150,9 @@ TNrPGfU3HqtfMPmmhdvrJsQng7Ck9fian4
 ```
 
 Send **only** USDT over the **Tron network** to this address; using other chains can mean lost funds.
+
+## License
+
+Licensed under the [MIT License](LICENSE).
+
+Version history: [GitHub Releases](https://github.com/ivan-khludov/vless-reality-setup/releases).
