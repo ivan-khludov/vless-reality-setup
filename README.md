@@ -57,8 +57,6 @@ After you complete **1) Install**, the manager shows the full menu (this is what
 Select option:
 ```
 
-## Advanced
-
 ### Manager menu reference
 
 The items below describe the menu options shown in the **After install** screen. Options **2–13** are only visible after the server is installed.
